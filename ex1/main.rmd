@@ -1,0 +1,167 @@
+
+--- 
+title: 'TMA4300 Computer Intensive Statistical Methods Exercise 1, Spring 2021'
+output:
+  pdf_document:
+    toc: no
+    toc_depth: '2'
+  html_document:
+    toc: yes
+    toc_depth: 2
+    toc_float: yes
+date: "`r format(Sys.time(), '%d.%m.%Y')`"
+subtitle: 'Group members: Eide, Jonathan and Lima-Eriksen, Leik'
+---
+
+# Problem A
+
+## Part 1 - the exponential distribution
+
+The exponential distribution with rate parameter $\lambda$ has CDF $F(x) = 1 - e^{-\lambda x}$. Sampling from this distribution is equivalent to sampling uniformly on the inverse CDF, i.e:
+
+$$
+\begin{aligned}
+  u \sim U[0,1] \\
+  f(x) = F^{-1}(u) = -\frac{1}{\lambda}\log{u}
+\end{aligned}
+$$
+This is implemented in R the following way:
+```{R, echo = T}
+  sample_exponential <-function(num_samples, lambda) {
+    uniforms <- runif(num_samples)
+    return(exponentials = - 1 / lambda * log(uniforms))
+  }
+```
+
+We then want to make sure that our function works correctly. We start off by checking that the sample mean matches the expected value $E[x] = \frac{1}{\lambda}$, and that the sample variance matches the variance $Var[x] = \frac{1}{\lambda^2}$:
+
+```{R, echo = T}
+  num_samples <- 100000
+  lambda <- 3.2
+  
+  x <- sample_exponential(num_samples, lambda)
+  cat('Theoretical mean:', 1/lambda, '\n')
+  cat('Sample mean:', mean(x), '\n----\n')
+  cat('Theoretical variance:', 1/lambda^2, '\n')
+  cat('Sample variance:', var(x), '\n')
+```
+
+We see that there is a good match between the theoretical and obtained values, which indicates that the function works as expected. Of course they would not be exactly equal because we only obtain a finite number of samples.
+
+We then proceed to verify that the samples ensemble the same distribution as the exponential distribution. A good way to visualize this would be to plot a histogram of the samples, and then superimpose the analytic function $f(x) = \lambda e^{-\lambda x}$. This is shown in the figure below:
+
+```{R exp_pdf}
+  library(ggplot2)
+  df <- data.frame(theo=seq(0,max(x),length.out=num_samples), x=x)
+  ggplot(df, aes(x = x)) +
+    geom_histogram(aes(y = ..density.., color = "Sampled"), binwidth=0.01) +
+    stat_function(fun=dexp,geom = "line",size=0.7,args = (mean=lambda),aes(color="Analytical")) +
+    ggtitle("Exponential pdf - Sampled vs Analytical") +
+    labs(x='x', y='density') +
+    xlim(0, 1.5)
+```
+
+From \@ref{exp_pdf} we see that the samples follow the exponential distribution perfectly. We thereby conclude that the function samples as expected.
+
+## Part 2
+
+We then proceed by creating a function for sampling from the pdf $g(x)$ as shown below
+
+$$
+g(x) = \begin{cases} 
+  c x^{\alpha - 1}, \quad 0 < x < 1, \\
+  c e^{-x}, \quad 1 \leq x, \\
+  0, \quad otherwise
+\end{cases}
+$$
+
+First, note that the normalizing constant $c$ can be found by using the property $\int_{-\infty}^{\infty} g(x) dx = 1$:
+$$
+  \begin{aligned}
+    1 &= \int_0^1 c x^{\alpha - 1} dx + \int_1^{\infty} c e^{-x} dx \\
+    &= \frac{c}{\alpha} + \frac{c}{e} \\
+    &\Rightarrow c  = \frac{\alpha e}{\alpha + e}
+  \end{aligned}
+$$
+Our aim is then to find an analytic expression for the inverse CDF, so that we can sample uniformly from it to generate samples from $g(x)$ in the same way as we did in Part 1. We start off by first finding the CDF $G(X) = P(X \leq x) = \int_{-\infty}^{x} g(x) dx$:
+
+$$
+  \begin{aligned}
+  G(x) &= \begin{cases}
+    \int_0^xc x^{\alpha - 1} dx ,  \quad x \in (0, 1) \\
+    \int_0^x c x^{\alpha - 1}dx + \int_1^xc e^{-x} dx,  \quad x \in [1, \infty)
+  \end{cases}\\
+  &= \begin{cases}
+    \frac{c}{\alpha} x^\alpha,  \quad x \in (0, 1) \\
+    \frac{c}{\alpha} +c (e^{-1} - e^{-x}),  \quad x \in [1, \infty)
+  \end{cases}
+  \end{aligned}
+$$
+
+Then the inverse CDF, $G^{-1}(x)$ is found by solving $G^{-1}(G(x)) = x$. The definition limits for the inverse function is obviously different, and is found by evaluationg $G^{-1}(x) = 1$, since this is the $x$-value for which the analytic expression changes for the CDF.
+
+$$
+  G^{-1}(x) = \begin{cases}
+    (\frac{\alpha}{c} x)^{1/\alpha}, \quad x \in (0, \frac{c}{\alpha}), \\
+    \ln{\frac{c}{1 - x}} \quad \forall \quad x \in [\frac{c}{\alpha}, 1), \\
+    0, \text{ otherwise.}
+  \end{cases}
+$$
+
+
+To sample from $g(x)$ is then equivalent to generate $u \sim U[0,1]$, and evaluate $G^{-1}(u)$. Below the `density_g` function allows us to evaluate the density analytically for given values of $x$. Furthermore, `sample_g` is used to sample from $g$ using the inverse CDF as previously specified.
+
+```{R, echo = T, eval = T}
+  density_g = function(x, alpha) {
+    c = alpha*exp(1)/(alpha + exp(1))
+    density = vector(length = length(x))
+    density[x < 1.] = c*x[x<1.]^(alpha-1)
+    density[x >= 1.] = c*exp(-x[x>=1.])
+    return(as.double(density))
+  }
+
+
+  sample_g = function(num_samples, alpha) {
+    c = (alpha * exp(1)) / (alpha + exp(1))
+    u = runif(num_samples)
+    samples = vector(length=length(u))
+    samples[u < c/alpha] = (alpha/c*u[u < c/alpha])^(1/alpha)
+    samples[u >= c/alpha] = log(c / (1 - u[u >= c/alpha]))
+    return(samples)
+  }
+```
+
+We then want to compare the expected value and variance with the empirical mean and variance respectively. The moments can be calculated as follows:
+
+$$
+  E[X] = \int_0^\infty x g(x) dx = \frac{c}{\alpha + 1} + 2 \frac{c}{e}
+$$
+
+$$
+  Var[X] = E[X^2] -E[X]^2 = \int_0^\infty x^2g(x)dx - E[X]^2 = \frac{c}{\alpha + 2} + 5\frac{c}{e} - (\frac{c}{\alpha + 1} + 2 \frac{c}{e})^2
+$$
+For $n=1\text{E+5}$ samples with $\alpha = 0.7$, the empirical and theoretical mean and variances are respectively:
+
+```{R, echo = T, eval = T}
+n=100000
+alpha = 0.7
+x = sample_g(n, alpha)
+cat("Empirical mean:", mean(x), "\n")
+c = (alpha * exp(1)) / (alpha + exp(1))
+cat("Theoretical mean:", c/(alpha+1) + 2 * c / exp(1), "\n")
+cat("----\n")
+cat("Empirical variance:", var(x), "\n")
+cat("Theoretical variance:", c/(alpha+2) + 5*c/exp(1) - (c/(alpha+1) + 2*c/exp(1))^2)
+```
+
+Lastly, we create a histogram of the samples with the analytic density superimposed. It seems that they coincides well. 
+```{R}
+  library(ggplot2)
+  df <- data.frame(theo=seq(0,max(x),length.out=num_samples), x=x)
+  ggplot(df, aes(x = x)) +
+    geom_histogram(aes(y = ..density.., color = "Sampled"), binwidth=0.01) +
+    stat_function(fun=density_g,geom = "line",size=0.5,args=(mean=alpha),aes(color="Analytical")) + 
+    xlim(0, 2) + 
+    ggtitle("Piecewise defined pdf - Sampled vs Analytical") + labs(x='x', y='density')
+```
+
