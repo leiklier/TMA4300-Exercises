@@ -65,7 +65,7 @@ From \@ref{exp_pdf} we see that the samples follow the exponential distribution 
 
 ## Part 2
 
-We then proceed by creating a function for sampling from the pdf $g(x)$ as shown below
+We then want to create a function for sampling from the pdf $g(x)$ as shown below. 
 
 $$
 g(x) = \begin{cases} 
@@ -98,7 +98,7 @@ $$
   \end{aligned}
 $$
 
-Then the inverse CDF, $G^{-1}(x)$ is found by solving $G^{-1}(G(x)) = x$. The definition limits for the inverse function is obviously different, and is found by evaluationg $G^{-1}(x) = 1$, since this is the $x$-value for which the analytic expression changes for the CDF.
+Then the inverse CDF, $G^{-1}(x)$ is found by solving $G^{-1}(G(x)) = x$. The definition limits for the inverse function is obviously different, and is found by evaluating $G^{-1}(x) = 1$, since this is the $x$-value for which the analytic expression changes for the CDF.
 
 $$
   G^{-1}(x) = \begin{cases}
@@ -143,21 +143,21 @@ $$
 For $n=1\text{E+5}$ samples with $\alpha = 0.7$, the empirical and theoretical mean and variances are respectively:
 
 ```{R, echo = T, eval = T}
-n=100000
-alpha = 0.7
-x = sample_g(n, alpha)
-cat("Empirical mean:", mean(x), "\n")
-c = (alpha * exp(1)) / (alpha + exp(1))
-cat("Theoretical mean:", c/(alpha+1) + 2 * c / exp(1), "\n")
-cat("----\n")
-cat("Empirical variance:", var(x), "\n")
-cat("Theoretical variance:", c/(alpha+2) + 5*c/exp(1) - (c/(alpha+1) + 2*c/exp(1))^2)
+  n=100000
+  alpha = 0.7
+  x = sample_g(n, alpha)
+  cat("Empirical mean:", mean(x), "\n")
+  c = (alpha * exp(1)) / (alpha + exp(1))
+  cat("Theoretical mean:", c/(alpha+1) + 2 * c / exp(1), "\n")
+  cat("----\n")
+  cat("Empirical variance:", var(x), "\n")
+  cat("Theoretical variance:", c/(alpha+2) + 5*c/exp(1) - (c/(alpha+1) + 2*c/exp(1))^2)
 ```
 
 Lastly, we create a histogram of the samples with the analytic density superimposed. It seems that they coincides well. 
 ```{R}
   library(ggplot2)
-  df <- data.frame(theo=seq(0,max(x),length.out=num_samples), x=x)
+  df <- data.frame(theo=seq(0,max(x),length.out=n), x=x)
   ggplot(df, aes(x = x)) +
     geom_histogram(aes(y = ..density.., color = "Sampled"), binwidth=0.01) +
     stat_function(fun=density_g,geom = "line",size=0.5,args=(mean=alpha),aes(color="Analytical")) + 
@@ -194,14 +194,43 @@ We then evaluate the validity in terms of moments by comparing theoretical and e
 
 ```
 
-As we see, the moments are matching well. As for the distribution of the samples versus the analytic distribution, this has been show below. As you see, it overlaps well:
+As we see, the moments are matching well. As for the distribution of the samples versus the analytic distribution, this has been show below. As you see, The samples overlaps well with the analytic expression:
 
 ```{R}
   library(ggplot2)
   df = data.frame(theo=seq(0,max(x),length.out=n), x=y)
   ggplot(df, aes(x=y)) +
     geom_histogram(aes(y = ..density.., color = "Sampled"), binwidth=0.01) +
-    stat_function(fun=dnorm,geom = "line",size=0.7,args=list(0,1),aes(color="Analytical")) +
-    ggtitle("Standard normal distribution - Sampled vs Analytical") +
+    stat_function(fun=dnorm,geom = "line",size=0.7,args=list(0,1),aes(color="Analytic")) +
+    ggtitle("Standard normal distribution - Sampled vs Analytic") +
     labs(x='x', y='density')
+```
+
+**TODO**: Here we could add a QQ-plot as well.
+
+## Part 4 - d-variate normal distribution
+
+Given $x \sim N_d(0, 1)$, we know that by linear transformation, 
+
+$$
+  \pmb{y} = A\pmb{x} + \pmb{\mu} \sim N_d(\pmb{\mu}, A A^T)
+$$
+
+So in order to sample from the $d$-variate normal distribution $y = N_d(\mu, \Sigma)$, we can first sample from $N_d(0, 1)$ using the function `sample_standard_normal`, and get $\pmb{y}$ by using the linear transformation proposed above. The matrix $A$ can be found by using Cholesky decomposition on $\Sigma$. This has been implemented in `sample_normal_d` as defined below.
+
+```{R}
+sample_normal_d = function(d, mu, sigma) {
+  x = sample_standard_normal(d)
+  y <- mu + t(chol(sigma))%*%x
+  return(y)
+}
+```
+
+We then generate $n = 1\text{E+5}$ samples using the $\pmb{\mu}$ and $\Sigma$ as defined below. 
+
+$$
+  \mu = \begin{pmatrix} 1.5 \\ 3 \end{pmatrix} , \quad \Sigma = \begin{pmatrix} 2 & 5 \\ 8 & 10 \end{pmatrix}
+$$
+```{R}
+  
 ```
