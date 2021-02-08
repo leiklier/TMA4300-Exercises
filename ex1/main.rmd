@@ -282,3 +282,46 @@ cat("Confidence:", confidence_interval*100, "percent.")
 
 ```
 
+# Part D - Rejection sampling and importance sampling
+
+## Part 1 - Rejection sampling algorithm
+
+```{R}
+
+#Function to be sampled from
+dna_function = function(x) {
+    return((2 + x)^125 * (1 - x)^38 * x^34)
+}
+
+#Find highest value of dna_function to set as max c
+target_c = optimize(dna_function, c(0, 1), maximum = TRUE)
+
+#Find normalizing constant
+n_c = integrate(dna_function, 0, 1)
+
+generate_samples = function(n) {
+    samples = rep(NA, n)
+    run_cnt = 0
+    for (i in 1:n) {
+        run_cnt = run_cnt + 1
+        finish = 0
+        while (done == 0) {
+            x_sample = runif(1)  # Proposal sample
+            a = dna_function(x_sample)/optimum$objective #Acceptance probability
+            u = runif(1) #Used to determine acceptance
+            # Accept if u<a(alpha)
+            if (u <= a) {
+                samples[i] = x_sample
+                done = 1
+            }
+        }
+    }
+    return(list(samples = samples, iterations = run_cnt))
+}
+
+
+```
+
+
+
+
