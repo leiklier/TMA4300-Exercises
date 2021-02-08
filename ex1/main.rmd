@@ -2,13 +2,13 @@
 --- 
 title: 'TMA4300 Computer Intensive Statistical Methods Exercise 1, Spring 2021'
 output:
-  pdf_document:
-    toc: no
-    toc_depth: '2'
   html_document:
     toc: yes
     toc_depth: 2
     toc_float: yes
+  pdf_document:
+    toc: no
+    toc_depth: '2'
 date: "`r format(Sys.time(), '%d.%m.%Y')`"
 subtitle: 'Group members: Eide, Jonathan and Lima-Eriksen, Leik'
 ---
@@ -234,3 +234,31 @@ $$
 ```{R}
   
 ```
+
+
+# Problem C
+
+## Part 1 - Monte Carlo integration and variance reduction
+
+In order to estimate $\Phi=Prob(x>4)$ given $x \sim N_d(0, 1)$ it is possible to generate n number of samples from the normal distribution and check which portion is over 4.
+
+```{R}
+n = 100000
+x = sample_standard_normal(n)
+
+hit_counter = 0
+for (num in x) {
+  if (num > 4) {
+    hit_counter = hit_counter + 1
+    
+  }
+}
+
+cat(hit_counter/length(x)*100, " percent.")
+
+
+```
+
+
+
+
