@@ -229,11 +229,28 @@ sample_normal_d = function(d, mu, sigma) {
 We then generate $n = 1\text{E+5}$ samples using the $\pmb{\mu}$ and $\Sigma$ as defined below. 
 
 $$
-  \mu = \begin{pmatrix} 1.5 \\ 3 \end{pmatrix} , \quad \Sigma = \begin{pmatrix} 2 & 5 \\ 8 & 10 \end{pmatrix}
+  \mu = \begin{pmatrix} 1.5 \\ 3 \end{pmatrix} , \quad \Sigma = \begin{pmatrix} 5 & 7 \\ 7 & 10 \end{pmatrix}
 $$
 ```{R}
-  
+
+d = 2
+n = 100000
+mu = c(1.5, 3)
+sigma = matrix(c(5,7,7,10),ncol=d,nrow=d)
+samples = matrix(NA, ncol=d, nrow=n)
+for (i in 1:n){
+  samples[i,] = sample_normal_d(d,mu,sigma) # Draw n samples
+}
+
+average = apply(samples, 2, mean)
+print("Mean vector:")
+print.data.frame(data.frame(average))
+covmat = cov(samples)
+print("Covariance matrix:")
+print.data.frame(data.frame(covmat))
 ```
+
+# Part B
 
 
 # Problem C
@@ -258,7 +275,4 @@ cat(hit_counter/length(x)*100, " percent.")
 
 
 ```
-
-
-
 
