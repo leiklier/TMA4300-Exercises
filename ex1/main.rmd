@@ -2,13 +2,13 @@
 --- 
 title: 'TMA4300 Computer Intensive Statistical Methods Exercise 1, Spring 2021'
 output:
-  pdf_document:
-    toc: no
-    toc_depth: '2'
   html_document:
     toc: yes
     toc_depth: 2
     toc_float: yes
+  pdf_document:
+    toc: no
+    toc_depth: '2'
 date: "`r format(Sys.time(), '%d.%m.%Y')`"
 subtitle: 'Group members: Eide, Jonathan and Lima-Eriksen, Leik'
 ---
@@ -232,6 +232,7 @@ $$
   \mu = \begin{pmatrix} 1.5 \\ 3 \end{pmatrix} , \quad \Sigma = \begin{pmatrix} 5 & 7 \\ 7 & 10 \end{pmatrix}
 $$
 ```{R}
+
 d = 2
 n = 100000
 mu = c(1.5, 3)
@@ -332,3 +333,76 @@ Furthermore, it is important to check that a histogram of the samples overlaps w
     xlim(0, 4) + ylim(0, 3) + 
     ggtitle("Gamma distribution using rejection sampling") + labs(x='x', y='density')
 ```
+
+# Part C - Monte Carlo integration and variance reduction
+
+## Part 1 - Monte carlo estimation
+
+In order to estimate $\Phi=Prob(x>4)$ given $x \sim N_d(0, 1)$ it is possible to generate n number of samples from the normal distribution and check which portion is over 4.
+
+```{R}
+
+#Estimate probability
+n = 100000
+x = sample_standard_normal(n)
+
+hit_counter = 0
+for (num in x) {
+  if (num > 4) {
+    hit_counter = hit_counter + 1
+    
+  }
+}
+est = hit_counter/length(x)
+cat(est*100, " percent.")
+
+#Calculate variance
+confidence_interval = est + c(-1, 1)*qnorm(.975)*sqrt(var(x)/n)
+
+cat("Confidence:", confidence_interval*100, "percent.")
+
+```
+
+# Part D - Rejection sampling and importance sampling
+
+## Part 1 - Rejection sampling algorithm
+
+```{R}
+
+#Function to be sampled from
+dna_function = function(x) {
+    return((2 + x)^125 * (1 - x)^38 * x^34)
+}
+
+#Find highest value of dna_function to set as max c
+target_c = optimize(dna_function, c(0, 1), maximum = TRUE)
+
+#Find normalizing constant
+n_c = integrate(dna_function, 0, 1)
+
+generate_samples = function(n) {
+    samples = rep(NA, n)
+    run_cnt = 0
+    for (i in 1:n) {
+        run_cnt = run_cnt + 1
+        finish = 0
+        while (done == 0) {
+            x_sample = runif(1)  # Proposal sample
+            a = dna_function(x_sample)/optimum$objective #Acceptance probability
+            u = runif(1) #Used to determine acceptance
+            # Accept if u<a(alpha)
+            if (u <= a) {
+                samples[i] = x_sample
+                done = 1
+            }
+        }
+    }
+    return(list(samples = samples, iterations = run_cnt))
+}
+
+
+```
+
+
+
+
