@@ -250,3 +250,85 @@ print.data.frame(data.frame(covmat))
 ```
 
 # Part B
+
+## Problem 1
+
+We want to find a way to sample from a gamma distribution $f(x)$ with parameters $\alpha \in (0, 1)$ and $\beta = 1$ as defined below. In order to do this, we can use rejection sampling with $g(x)$ as the proposal distribution. This is possible because the support of $g(x)$ includes the support of $f(x)$; in other words, $g(x) > 0$ whenever $f(x) > 0$. As a consequence of this, there exists a $c > 1$ such that $\left\{\frac{f(x)}{g(x)} \leq c, x : f(x) > 0\right\}$. 
+
+$$
+  f(x) = \begin{cases}
+    \frac{1}{\Gamma(\alpha)} x^{\alpha-1} e^{-x}, \quad &0<x \\
+    0, &\text{otherwise.}
+  \end{cases}
+$$
+
+Rejection sampling is done in two steps. First, we generate $x \sim g(x)$. We then compute $\alpha = \frac{1}{c} \cdot  \frac{f(x)}{g(x)}$, and generate $u \sim U[0,1]$. If $u \leq \alpha$, then $x$ is a sample from $f(x)$, and if not we have to redo the whole process until it is. The overall acceptance probability $P_a$ is found to be the following:
+
+$$
+  P_a = P\left(U \leq \frac{1}{c} \cdot  \frac{f(x)}{g(x)}\right) = \int_{-\infty}^\infty \frac{f(x)}{c \cdot g(x)} g(x) dx = c^{-1}\int_{-\infty}^\infty f(x) dx= c^{-1}
+$$
+
+So in order to maximize the acceptance probability, we have to minimize $c$. Since we have to find a $c$ which is greater than $\frac{f(x)}{g(x)} \forall x \in \mathbb{R}$, the lowest possible $c$ would be the highest value the ratio $\frac{f(x)}{g(x)}$ can attain, i.e.
+$$
+  \begin{align}
+    c &= \sup_x \frac{f(x)}{g(x)} \\
+      &= \sup_x \begin{cases}
+      \frac{e^{-x}}{\Gamma(\alpha)} \left(\frac{1}{\alpha} + \frac{1}{e}\right), \quad &0 < x < 1, \\
+      \frac{x^{\alpha-1}}{\Gamma(\alpha)}\left(\frac{1}{\alpha} + \frac{1}{e}\right), \quad &1 \leq x
+    \end{cases} \\
+    &= \frac{\alpha^{-1} + e^{-1}}{\Gamma(\alpha)}
+  \end{align}
+$$
+
+This means that the lowest acceptance probability we can achieve is $P_\text{a,lowest} = \frac{\Gamma(\alpha)}{\alpha^{-1} + e^{-1}}$. A sampling algorithm which uses this $c$ has been implemented below in `R`. Here we exploit the fact that it on average takes $c$ iterations to generate 1 sample from the target distribution $f(x)$. Then the actual number of samples we need in order to sample $n$ times from $f(x)$ should be pretty close to $n c$ when $n$ is large. This speeds up the execution significantly, as execution time is of concern only for large $n$. After sampling once, we resample with $c$ times the number of samples we are missing. This should then converge pretty fast.
+
+```{R}
+  density_f = function(x, alpha) {
+    return(dgamma(x, alpha, rate=1))
+  }
+  
+  sample_f = function(n, alpha) {
+    c = (1/alpha + exp(-1)) / gamma(alpha)
+    samples = vector()
+    repeat {
+      num_missing_samples = n - length(samples)
+      
+      x = sample_g(as.integer(num_missing_samples*c), alpha)
+      
+      acceptance_probs = density_f(x, alpha) / (c * density_g(x, alpha))
+      u = runif(as.integer(num_missing_samples*c))
+      samples = c(samples, x[u <= acceptance_probs])
+      if(length(samples) >= n) {
+        break
+      }
+    }
+    # Do not return excess samples:
+    return(samples[0:n])
+  }
+```
+We then want to evaluate the correctness of our sample in terms of expectation value and variance. Below we have calculated the sample mean and variance, and compared them with their respective theoretical values. We see that they match well.
+```{R}
+  n = 100000
+  alpha = 0.6
+  x = sample_f(n, alpha)
+  cat("Theoretical mean:", alpha, "\n")
+  cat("Sample mean:", mean(x), "\n")
+  cat("----", "\n")
+  
+  cat("Theoretical variance:", alpha, "\n")
+  cat("Sample variance:", var(x), "\n")
+```
+
+Furthermore, it is important to check that a histogram of the samples overlaps well with the analytic expression for $f(x)$. Such a plot has been created below. We see a good ovelap, which further strengthens our belief that the sampler works as intended.
+
+```{R}
+  n = 100000
+  alpha = 0.6
+  x = sample_f(n, alpha)
+  df = data.frame(x)
+  ggplot(df, aes(x = x)) +
+    geom_histogram(aes(y = ..density.., color = "Sampled"), binwidth=0.01) +
+    stat_function(fun=dgamma,geom = "line",size=0.5,args=(alpha=alpha),aes(color="Analytical")) +
+    xlim(0, 4) + ylim(0, 3) + 
+    ggtitle("Gamma distribution using rejection sampling") + labs(x='x', y='density')
+```
