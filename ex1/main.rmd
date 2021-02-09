@@ -40,10 +40,8 @@ We then want to make sure that our function works correctly. We start off by che
   lambda = 3.2
   
   x = sample_exponential(n, lambda)
-  cat('Theoretical mean:', 1/lambda, '\n')
-  cat('Sample mean:', mean(x), '\n----\n')
-  cat('Theoretical variance:', 1/lambda^2, '\n')
-  cat('Sample variance:', var(x), '\n')
+  cat("Theoretical mean:", 1/lambda, "Sample mean", mean(x), "\n")
+  cat("Theoretical variance:", 1/lambda^2, "Sample variance", var(x), "\n")
 ```
 
 We see that there is a good match between the theoretical and obtained values, which indicates that the function works as expected. Of course they would not be exactly equal because we only obtain a finite number of samples.
@@ -61,7 +59,7 @@ We then proceed to verify that the samples ensemble the same distribution as the
     xlim(0, 1.5)
 ```
 
-From \@ref{exp_pdf} we see that the samples follow the exponential distribution perfectly. We thereby conclude that the function samples as expected.
+From the plot we see that the samples follow the exponential distribution perfectly. We thereby conclude that the function samples as expected.
 
 ## Part 2
 
@@ -102,9 +100,9 @@ Then the inverse CDF, $G^{-1}(x)$ is found by solving $G^{-1}(G(x)) = x$. The de
 
 $$
   G^{-1}(x) = \begin{cases}
-    (\frac{\alpha}{c} x)^{1/\alpha}, \quad x \in (0, \frac{c}{\alpha}), \\
-    \ln{\frac{c}{1 - x}} \quad \forall \quad x \in [\frac{c}{\alpha}, 1), \\
-    0, \text{ otherwise.}
+    (\frac{\alpha}{c} x)^{1/\alpha}, \quad &x \in (0, \frac{c}{\alpha}), \\
+    \ln{\frac{c}{1 - x}},  \quad &x \in [\frac{c}{\alpha}, 1), \\
+    0, &\text{otherwise.}
   \end{cases}
 $$
 
@@ -146,12 +144,9 @@ For $n=1\text{E+5}$ samples with $\alpha = 0.7$, the empirical and theoretical m
   n=100000
   alpha = 0.7
   x = sample_g(n, alpha)
-  cat("Empirical mean:", mean(x), "\n")
   c = (alpha * exp(1)) / (alpha + exp(1))
-  cat("Theoretical mean:", c/(alpha+1) + 2 * c / exp(1), "\n")
-  cat("----\n")
-  cat("Empirical variance:", var(x), "\n")
-  cat("Theoretical variance:", c/(alpha+2) + 5*c/exp(1) - (c/(alpha+1) + 2*c/exp(1))^2)
+  cat("Theoretical mean:", c/(alpha+1) + 2*c/exp(1), "Sample mean:", mean(x), "\n")
+  cat("Theoretical variance:", c/(alpha+2) + 5*c/exp(1) - (c/(alpha+1) + 2*c/exp(1))^2, "Sample variance:", var(x), "\n")
 ```
 
 Lastly, we create a histogram of the samples with the analytic density superimposed. It seems that they coincides well. 
@@ -162,7 +157,7 @@ Lastly, we create a histogram of the samples with the analytic density superimpo
     geom_histogram(aes(y = ..density.., color = "Sampled"), binwidth=0.01) +
     stat_function(fun=density_g,geom = "line",size=0.5,args=(mean=alpha),aes(color="Analytical")) + 
     xlim(0, 2) + 
-    ggtitle("Piecewise defined pdf - Sampled vs Analytical") + labs(x='x', y='density')
+    ggtitle("Piecewise continuous pdf - Sampled vs Analytical") + labs(x='x', y='density')
 ```
 
 ## Part 3 - The Box-Muller Algorithm
@@ -170,13 +165,18 @@ Lastly, we create a histogram of the samples with the analytic density superimpo
 In order to generate $n$ independent samples from the standard normal distribution, we can use the Box-Muller algorithm. The algorithm makes it possible to generate two iid. samples from $N(0,1)$ according to $y_1 = \sqrt x_2 \cos x_1$ and $y_2 = \sqrt x_2 \sin x_1$ where $x_1 \sim U[0, 2\pi]$ and $x_1 \sim exp(1/2)$. $x_1$ can be generated using `runif(0, 2*pi)`. For $x_2$ we can reuse the function `sample_exponential` we created in Part 1 to simulate from the exponential distribution with rate parameter $\lambda = 1/2$. Since all samples are iid, this also scales to $n$ samples. It should be noted that is is way faster to do this in a vectorized fashion. Since it only works for even numbers, we have to remove the last sample we generated if $n$ is odd.
 
 ```{R, echo=T}
-  # TODO: only works with even n
   sample_standard_normal = function(n) {
-    x_1 = runif(n/2, 0, 2*pi)
-    x_2 = sample_exponential(n/2, lambda=1/2)
+    num_samples = n
+    if((n %% 2) == 1) {
+      # n is odd, so we should sample one extra:
+      num_samples = num_samples + 1
+  }
+    x_1 = runif(num_samples/2, 0, 2*pi)
+    x_2 = sample_exponential(num_samples/2, lambda=1/2)
     y_1 = sqrt(x_2) * cos(x_1)
     y_2 = sqrt(x_2) * sin(x_1)
-    return(c(y_1, y_2))
+    # Remove the last sample if n is odd:
+    return(c(y_1, y_2)[0:n])
   }
 ```
 
@@ -185,13 +185,8 @@ We then evaluate the validity in terms of moments by comparing theoretical and e
 ```{R, echo=T}
   n = 100000
   y = sample_standard_normal(n)
-  
-  cat("Empirical mean:", mean(y), "\n")
-  cat("Theoretical mean:", 0, '\n')
-  cat("----\n")
-  cat("Empirical variance:", var(y), "\n")
-  cat("Theoretical variance:", 1, "\n")
-
+  cat("Theoretical mean:", 0, "Sample mean:", mean(y), "\n")
+  cat("Theoretical variance:", 1, "Sample variance:", var(y), "\n")
 ```
 
 As we see, the moments are matching well. As for the distribution of the samples versus the analytic distribution, this has been show below. As you see, The samples overlaps well with the analytic expression:
