@@ -20,10 +20,10 @@ subtitle: 'Group members: Eide, Jonathan and Lima-Eriksen, Leik'
 The exponential distribution with rate parameter $\lambda$ has CDF $F(x) = 1 - e^{-\lambda x}$. Sampling from this distribution is equivalent to sampling uniformly on the inverse CDF, i.e:
 
 $$
-\begin{aligned}
+\begin{align}
   u \sim U[0,1] \\
   f(x) = F^{-1}(u) = -\frac{1}{\lambda}\log{u}
-\end{aligned}
+\end{align}
 $$
 This is implemented in R the following way:
 ```{R, echo = T}
@@ -77,16 +77,16 @@ $$
 
 First, note that the normalizing constant $c$ can be found by using the property $\int_{-\infty}^{\infty} g(x) dx = 1$:
 $$
-  \begin{aligned}
+  \begin{align}
     1 &= \int_0^1 c x^{\alpha - 1} dx + \int_1^{\infty} c e^{-x} dx \\
     &= \frac{c}{\alpha} + \frac{c}{e} \\
     &\Rightarrow c  = \frac{\alpha e}{\alpha + e}
-  \end{aligned}
+  \end{align}
 $$
 Our aim is then to find an analytic expression for the inverse CDF, so that we can sample uniformly from it to generate samples from $g(x)$ in the same way as we did in Part 1. We start off by first finding the CDF $G(X) = P(X \leq x) = \int_{-\infty}^{x} g(x) dx$:
 
 $$
-  \begin{aligned}
+  \begin{align}
   G(x) &= \begin{cases}
     \int_0^xc x^{\alpha - 1} dx ,  \quad x \in (0, 1) \\
     \int_0^x c x^{\alpha - 1}dx + \int_1^xc e^{-x} dx,  \quad x \in [1, \infty)
@@ -95,7 +95,7 @@ $$
     \frac{c}{\alpha} x^\alpha,  \quad x \in (0, 1) \\
     \frac{c}{\alpha} +c (e^{-1} - e^{-x}),  \quad x \in [1, \infty)
   \end{cases}
-  \end{aligned}
+  \end{align}
 $$
 
 Then the inverse CDF, $G^{-1}(x)$ is found by solving $G^{-1}(G(x)) = x$. The definition limits for the inverse function is obviously different, and is found by evaluating $G^{-1}(x) = 1$, since this is the $x$-value for which the analytic expression changes for the CDF.
@@ -206,8 +206,6 @@ As we see, the moments are matching well. As for the distribution of the samples
     labs(x='x', y='density')
 ```
 
-**TODO**: Here we could add a QQ-plot as well.
-
 ## Part 4 - d-variate normal distribution
 
 Given $x \sim N_d(0, 1)$, we know that by linear transformation, 
@@ -281,14 +279,14 @@ $$
   \end{align}
 $$
 
-This means that the lowest acceptance probability we can achieve is $P_\text{a,lowest} = \frac{\Gamma(\alpha)}{\alpha^{-1} + e^{-1}}$. A sampling algorithm which uses this $c$ has been implemented below in `R`. Here we exploit the fact that it on average takes $c$ iterations to generate 1 sample from the target distribution $f(x)$. Then the actual number of samples we need in order to sample $n$ times from $f(x)$ should be pretty close to $n c$ when $n$ is large. This speeds up the execution significantly, as execution time is of concern only for large $n$. After sampling once, we resample with $c$ times the number of samples we are missing. This should then converge pretty fast.
+This means that the lowest acceptance probability we can achieve is $P_\text{a,lowest} = \frac{\Gamma(\alpha)}{\alpha^{-1} + e^{-1}}$. A sampling algorithm which uses this $c$ has been implemented below in `R`. Here we exploit the fact that it on average takes $c$ iterations to generate 1 sample from the target distribution $f(x)$. Then the actual number of samples we need in order to sample $n$ times from $f(x)$ should be pretty close to $n \cdot c$ when $n$ is large. This speeds up the execution significantly, as execution time is of concern only for large $n$. After sampling once, we resample with $c$ times the number of samples we are missing until we have enough samples. This should then converge pretty fast.
 
 ```{R}
   density_f = function(x, alpha) {
     return(dgamma(x, alpha, rate=1))
   }
   
-  sample_f = function(n, alpha) {
+  sample_f_small = function(n, alpha) {
     c = (1/alpha + exp(-1)) / gamma(alpha)
     samples = vector()
     repeat {
@@ -311,7 +309,7 @@ We then want to evaluate the correctness of our sample in terms of expectation v
 ```{R}
   n = 100000
   alpha = 0.6
-  x = sample_f(n, alpha)
+  x = sample_f_small(n, alpha)
   cat("Theoretical mean:", alpha, "\n")
   cat("Sample mean:", mean(x), "\n")
   cat("----", "\n")
@@ -320,12 +318,12 @@ We then want to evaluate the correctness of our sample in terms of expectation v
   cat("Sample variance:", var(x), "\n")
 ```
 
-Furthermore, it is important to check that a histogram of the samples overlaps well with the analytic expression for $f(x)$. Such a plot has been created below. We see a good ovelap, which further strengthens our belief that the sampler works as intended.
+Furthermore, it is important to check that a histogram of the samples overlaps well with the analytic expression for $f(x)$. Such a plot has been created below. We see a good overlap, which further strengthens our belief that the sampler works as intended.
 
 ```{R}
   n = 100000
   alpha = 0.6
-  x = sample_f(n, alpha)
+  x = sample_f_small(n, alpha)
   df = data.frame(x)
   ggplot(df, aes(x = x)) +
     geom_histogram(aes(y = ..density.., color = "Sampled"), binwidth=0.01) +
@@ -333,6 +331,117 @@ Furthermore, it is important to check that a histogram of the samples overlaps w
     xlim(0, 4) + ylim(0, 3) + 
     ggtitle("Gamma distribution using rejection sampling") + labs(x='x', y='density')
 ```
+
+## Problem 2: Ratio of uniforms method
+
+We now want to consider sampling from a gamma-distribution $f(x)$ with $\alpha > 1$ and $\beta = 1$. With an unbounded $\alpha$, we cannot find a $c \geq \frac{f(x)}{g(x)} \forall x \in \mathbb{R}$ anymore. Therefore, sampling using ratio-of-uniforms seems more suitable. Define the area $C_f$
+
+$$
+  C_f = \left\{ (x_1, x_2) : 0 \leq x_1 \leq \sqrt{f^*\left(\frac{x_1}{x_2}\right)}  \right\} \quad \text{where}\quad f^*(x) = \begin{cases}
+    x^{\alpha-1}e^{-x}, \quad &0 < x, \\
+    0, &\text{otherwise.}
+  \end{cases}
+$$
+
+and 
+
+$$
+  a = \sqrt{\sup_x f^*(x)}, \quad b_+ = \sqrt{\sup_{x \geq 0} (x^2f^*(x))} \quad\text{and}\quad b_- = \sqrt{\sup_{x \leq 0} (x^2f^*(x))}
+$$
+
+so that $C_f \subset [0, a] \times [b_-, b_+]$. The values of $a$, $b_-$ and $b_+$ are found by means of differentiation:
+
+$$
+  \begin{align}
+    \frac{d}{dx}f^*(x) = 0 &\Leftrightarrow e^{-x}(\alpha - x - 1)x^{\alpha-2} = 0 \Rightarrow x = \alpha - 1 \\
+    \Rightarrow a &= \sqrt{f^*(\alpha-1)} \\
+    &= \sqrt{(\alpha-1)^{\alpha-1}e^{1-\alpha}}
+  \end{align}
+$$
+
+$$
+  \begin{align}
+  \left\{ \frac{d}{dx} x^2 f^*(x) = 0, x \geq 0 \right\} &\Leftrightarrow e^{-x}(\alpha - x + 1) x^\alpha = 0 \Rightarrow  x = \alpha -1 \\
+  \Rightarrow b_+ &= \sqrt{x^2 f^*(\alpha - 1)} \\
+  &= \sqrt{(\alpha+1)^{\alpha+1}e^{-(\alpha + 1)}}
+  \end{align}
+$$
+
+$$
+  b_- = 0
+$$
+Then $y = x_1 / x_2 \sim \Gamma(\alpha, \beta=1)$ if $x_1$ and $x_2$ are sampled uniformly inside $C_f$. This can be accomplished by letting $x_1 \sim U[0, a]$ and $x_2 \sim U[b_-, b_+]$, and selecting only $(x_1, x_2) \in C_f$. Note that $\alpha$ can grow arbitrarily large, which makes the $x^\alpha$ term in $f(x)$ grow even larger. This would result in numerical overflow in R, and is a problem. To solve this, we can sample in log-scale. Then $\ln x_1$ and $\ln x_2$ are sampled as follows:
+
+$$
+  \begin{align}
+    x_1 &= a \cdot U[0,1] \\ 
+    &\Rightarrow \ln x_1 = \ln a + \ln U[0,1] \\
+    x_2 &= b_- + (b_+ - b_-) \cdot U[0,1] \\
+    &\Rightarrow \ln x_2 = \ln b_+ + \ln U[0,1]
+  \end{align}
+$$
+
+And the condition for checking $(x_1, x_2) \in C_f$ is equivalent to
+
+$$
+\begin{align}
+  &\ln x_1 \leq \ln \sqrt{f^*\left(\frac{x_2}{x_1}  \right)} \\
+  &\Rightarrow 2 \ln x_1 \leq (\alpha -1) (\ln x_2 - \ln x_1) - \exp(\ln x_2 - \ln x_1)
+\end{align}
+$$
+```{R}
+sample_f_large = function(n, alpha) {
+  loga = (alpha - 1)/2 * (log(alpha - 1) - 1)
+  logbp = (alpha + 1)/2 * (log(alpha + 1) - 1)
+  
+  samples = vector()
+  num_iterations = 0
+  
+  while(length(samples) < n) {
+    num_iterations = num_iterations + 1
+    
+    # Sample in log-scale
+    log_x1 = loga + log(runif(1))
+    log_x2 = logbp + log(runif(1))
+    
+    if(2*log_x1 <= (alpha - 1)*(log_x2 - log_x1) - exp(log_x2 - log_x1)) {
+      # Accept:
+      samples = c(samples, exp(log_x2 - log_x1))
+    }
+  }
+  
+  return(list(samples=samples, num_iterations=num_iterations))
+}
+```
+
+We then evaluate the correctness in terms of comparing sampled and theoretical mean and variance:
+
+```{R}
+n = 10000
+alpha = 50
+samples = sample_f_large(n, alpha)$samples
+cat("Theoretical mean:", alpha, "Sample mean:", mean(samples), "\n")
+cat("Theoretical variance:", alpha, "Sample variance:", var(samples), "\n")
+```
+
+Another important aspect of the algorithm is how fast it executes. We let $n = 1000$, and check how many iterations are required for sampling when $\alpha \in (1, 2000] \subset \mathbb{Z}$:
+
+```{R}
+n = 1000
+alpha = seq(2, 2002, 10)
+num_iterations = vector()
+for(a in alpha) {
+  num_iterations = c(num_iterations, sample_f_large(n, a)$num_iterations)
+}
+df = data.frame(x=alpha, num_iterations=num_iterations)
+ggplot(df, aes(x = alpha, y = num_iterations)) + geom_line()
+```
+
+From the plot it seems that the number of iterations $n_i$ required for generating $n$ samples has a $\log\alpha$ dependency, i.e. $n_i \propto \log\alpha$ for a fixed $n$. This is not too bad, since it implies that by increasing $\alpha$ a lot, $n_i$ will increase only slightly.
+
+## Part 3 - Gamma sampler with arbitrary parameters
+
+We now want to combine the two Gamma samplers which had a fixed $\beta = 1$, and create a sampler which can sample with arbitrary $\alpha$ and $\beta$. First, note that $\beta$ is an inverse rate parameter, and so $\text{Gamma}(\alpha, \beta) = \text{Gamma}(\alpha, 1)/\beta$(TODO: Skriv om dette vha SV). Second, 
 
 # Part C - Monte Carlo integration and variance reduction
 
