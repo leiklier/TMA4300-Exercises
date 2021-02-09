@@ -257,7 +257,7 @@ print.data.frame(data.frame(covmat))
 
 ## Part 1 - Monte carlo estimation
 
-In order to estimate $\Phi=Prob(x>4)$ given $x \sim N_d(0, 1)$ it is possible to generate n number of samples from the normal distribution and check which portion is over 4.
+In order to estimate $\theta=Prob(x>4)$ given $x \sim N_d(0, 1)$ it is possible to generate n number of samples from the normal distribution and check which portion is over 4.
 
 ```{R}
 
@@ -297,23 +297,23 @@ dna_function = function(x) {
 target_c = optimize(dna_function, c(0, 1), maximum = TRUE)
 
 #Find normalizing constant
-n_c = integrate(dna_function, 0, 1)
+n_c = integrate(dna_function, 0, 1)$val
 
 generate_samples = function(n) {
     samples = rep(NA, n)
     run_cnt = 0
     for (i in 1:n) {
-        run_cnt = run_cnt + 1
-        finish = 0
+        done = 0
         while (done == 0) {
             x_sample = runif(1)  # Proposal sample
-            a = dna_function(x_sample)/optimum$objective #Acceptance probability
+            a = dna_function(x_sample)/target_c$objective #Acceptance probability
             u = runif(1) #Used to determine acceptance
             # Accept if u<a(alpha)
             if (u <= a) {
                 samples[i] = x_sample
                 done = 1
             }
+            run_cnt = run_cnt + 1
         }
     }
     return(list(samples = samples, iterations = run_cnt))
@@ -322,6 +322,51 @@ generate_samples = function(n) {
 
 ```
 
+## Part 2 - Posterior mean
+Estimate the posterior mean of θ by Monte-Carlo integration using n = 10000 samples from f(θ|y):
+
+```{R}
+
+n = 10000
+
+# Function used to find actual mean
+g = function(x) {
+  return(x*dna_function(x)*x)
+}
+
+dna_func_density = function(x) {
+  return(dna_function(x)/n_c)
+}
 
 
+y = generate_samples(n) #Generate samples from the distribution
 
+est_mean = sum(y$samples)/n
+
+cat("Estimated mean: ", sum(y$samples)/n)
+
+
+cat("Theoretical mean: ", integrate(g, 0, 1)$val/n_c)
+
+#Generate histogram
+
+df = data.frame(theo = seq(0, 1, length.out = n), value = y$samples)
+
+#TODO: Add caption
+ggplot(df, aes(x = value)) + geom_histogram(aes(y = ..density.., colour = "Sampled"), 
+    binwidth = 0.001) + stat_function(fun = dna_func_density, geom = "line", 
+    size = 1.6, aes(colour = "Analytical")) + ggtitle("Analytical vs sampled density") + 
+    xlim(0, 1) + geom_segment(x = sum(y$samples)/n, xend = sum(y$samples)/n, 
+    y = 0, yend = 100, aes(colour = "Mean"), size = 1.2, linetype = "longdash") + 
+    labs(x = "x", y = "density", caption = paste("Caption"))
+
+```
+
+## Part 3 - Average random numbers per sample
+TODO: Add expenation
+
+```{R}
+cat("Average random numbers per sample: ",y$iterations/n)
+cat("Theoretical expected numbers per sample: ", target_c$objective/n_c)
+
+```
