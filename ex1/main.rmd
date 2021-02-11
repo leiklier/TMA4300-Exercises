@@ -545,24 +545,23 @@ In order to estimate $\theta=Prob(x > 4)$ given $x \sim N_d(0, 1)$ it is possibl
 
 ```{R}
 
-#Estimate probability
-n = 100000
-x = sample_standard_normal(n)
-
-hit_counter = 0
-for (num in x) {
-  if (num > 4) {
-    hit_counter = hit_counter + 1
-    
-  }
+#Estimate probability by monte carlo itegration
+generate_monte_carlo_samples = function(n) {
+  x = sample_standard_normal(n)
+  samples = rep(NA, n)
+  samples[x > 4] = 1
+  samples[x <= 4] = 0
+  return(samples)
 }
-est = hit_counter/length(x)
-cat(est*100, " percent.")
 
-#Calculate variance
-confidence_interval = est + c(-1, 1)*qnorm(.975)*sqrt(var(x)/n)
+n = 100000
+x = generate_monte_carlo_samples(n)
+est = mean(x)
+confidence_interval = est + c(-1, 1)*qnorm(.975)*sqrt(var(x)/n) #Calculate variance
 
-cat("Confidence:", confidence_interval*100, "percent.")
+cat("Prob(x>4): ", est, "\n")
+
+cat("Confidence:", confidence_interval, "\n")
 ```
 
 # Part 2 - Importance sampling
@@ -580,38 +579,75 @@ Algoritmen:
 
 generate_weighted_samples = function(n) {
   samples = rep(NA, n)
-  n_c = 1
-  for (i in 1:n) {
-    
-    sample_u = runif(1)
-    sample_x = sqrt(16-2*log(1-sample_u)) #Inverse
-    if (sample_x > 4) {
-      weight = 1/(exp(8)*sqrt(2*pi)*sample_x) #Calculate weight
-      samples[i] = 1*weight
-    }
-    else {
-      samples[i] = 0
-    }
-  }
+  sample_u = runif(n)
+  sample_x = sqrt(16-2*log(1-sample_u)) #Inverse sampling from G
+  samples[ sample_x <= 4.] = 0
+  samples[ sample_x > 4.] = 1/(exp(8)*sqrt(2*pi)*sample_x[ sample_x > 4.])
+  
   return(samples)
 }
 
-samples = generate_weighted_samples(100000)
+n = 100000
+
+samples = generate_weighted_samples(n)
 
 est = mean(samples)
 
 confidence_interval = est + c(-1, 1)*qnorm(.975)*sqrt(var(samples)/n)
 
-cat("Estimated:", est)
+cat("Estimated:", est, "\n")
 
-cat("COnfidence interval:", confidence_interval)
-
-
+cat("COnfidence interval:", confidence_interval, "\n")
 
 
+cat("Interval width:", confidence_interval[1]-confidence_interval[0])
 
 
 ```
+
+## Part 3a)
+```{R}
+
+#Draw sample from g(x) using inverse transform
+
+generate_weighted_samples_anth = function(n) {
+  samples = rep(NA)
+  samples_u_1 = runif(n)
+  samples_u_2 = 1 - samples_u_1
+  samples_u = c(samples_u_1, samples_u_2)
+  sample_x = sqrt(16-2*log(1-samples_u)) #Inverse
+  samples[ sample_x <= 4.] = 0
+  samples[ sample_x > 4.] = 1/(exp(8)*sqrt(2*pi)*sample_x[ sample_x > 4.])
+  
+  return(samples)
+}
+
+```
+
+## Part 3b)
+
+```{R}
+n = 50000
+
+samples = generate_weighted_samples_anth(n)
+
+est = mean(samples)
+
+confidence_interval = est + c(-1, 1)*qnorm(.975)*sqrt(var(samples)/(2*n)) #Multiply n by 2 as number of samples is the double of n
+
+cat("Estimated:", est, "\n")
+
+cat("COnfidence interval:", confidence_interval, "\n")
+
+cat("Interval width:", confidence_interval[1]-confidence_interval[0])
+
+
+```
+
+Konfidensintervallet blir smalere
+
+Fordi man får dobbelt så mange datapunkter
+
 
 # Part D - Rejection sampling and importance sampling
 
@@ -676,7 +712,6 @@ est_mean = sum(y$samples)/n
 
 cat("Estimated mean: ", sum(y$samples)/n)
 
-
 cat("Theoretical mean: ", integrate(g, 0, 1)$val/n_c)
 
 #Generate histogram
@@ -694,7 +729,7 @@ ggplot(df, aes(x = value)) + geom_histogram(aes(y = ..density.., colour = "Sampl
 ```
 
 ## Part 3 - Average random numbers per sample
-TODO: Add expenation
+TODO: Add explenation
 
 ```{R}
 cat("Average random numbers per sample: ",y$iterations/n)
