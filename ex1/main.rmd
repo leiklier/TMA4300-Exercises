@@ -467,6 +467,54 @@ cat("Confidence:", confidence_interval*100, "percent.")
 
 ```
 
+# Part 2 - Importance sampling
+
+Algoritmen:
+1. Sample fra g(x)
+2. Regn ut w(x) * 1_{x>=4}
+3. Multipliser alle elementene fra steg 2 og del på n
+4. Ferdig
+
+
+```{R}
+
+#Draw sample from g(x) using inverse transform
+
+generate_weighted_samples = function(n) {
+  samples = rep(NA, n)
+  n_c = 1
+  for (i in 1:n) {
+    
+    sample_u = runif(1)
+    sample_x = sqrt(16-2*log(1-sample_u)) #Inverse
+    if (sample_x > 4) {
+      weight = 1/(exp(8)*sqrt(2*pi)*sample_x) #Calculate weight
+      samples[i] = 1*weight
+    }
+    else {
+      samples[i] = 0
+    }
+  }
+  return(samples)
+}
+
+samples = generate_weighted_samples(100000)
+
+est = mean(samples)
+
+confidence_interval = est + c(-1, 1)*qnorm(.975)*sqrt(var(samples)/n)
+
+cat("Estimated:", est)
+
+cat("COnfidence interval:", confidence_interval)
+
+
+
+
+
+
+```
+
 # Part D - Rejection sampling and importance sampling
 
 ## Part 1 - Rejection sampling algorithm
