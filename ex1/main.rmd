@@ -17,25 +17,24 @@ subtitle: 'Group members: Eide, Jonathan and Lima-Eriksen, Leik'
 
 ## Part 1 - the exponential distribution
 
-The exponential distribution with rate parameter $\lambda$ has CDF $F(x) = 1 - e^{-\lambda x}$. Sampling from this distribution is equivalent to sampling uniformly on the inverse CDF, i.e:
+The exponential distribution with rate parameter $\lambda$ has CDF $F(x) = 1 - e^{-\lambda x}$. Sampling from this distribution is equivalent to sampling uniformly on the inverse CDF, i.e.:
 
-$$
 \begin{align}
   u \sim U[0,1] \\
   f(x) = F^{-1}(u) = -\frac{1}{\lambda}\log{u}
 \end{align}
-$$
+
 This is implemented in R the following way:
 ```{R, echo = T}
   sample_exponential = function(n, lambda) {
-    uniforms = runif(n)
-    return(exponentials = -1/lambda * log(uniforms))
+    u = runif(n)
+    return(-1/lambda * log(u))
   }
 ```
 
 We then want to make sure that our function works correctly. We start off by checking that the sample mean matches the expected value $E[x] = \frac{1}{\lambda}$, and that the sample variance matches the variance $Var[x] = \frac{1}{\lambda^2}$:
 
-```{R, echo = T}
+```{R}
   n = 100000
   lambda = 3.2
   
@@ -46,15 +45,15 @@ We then want to make sure that our function works correctly. We start off by che
 
 We see that there is a good match between the theoretical and obtained values, which indicates that the function works as expected. Of course they would not be exactly equal because we only obtain a finite number of samples.
 
-We then proceed to verify that the samples ensemble the same distribution as the exponential distribution. A good way to visualize this would be to plot a histogram of the samples, and then superimpose the analytic function $f(x) = \lambda e^{-\lambda x}$. This is shown in the figure below:
+We then proceed to verify that the samples ensemble the same distribution as the exponential distribution. A good way to visualize this would be to plot a histogram of the samples, and then superimpose the pdf $f(x) = \lambda e^{-\lambda x}$. This is shown in the figure below:
 
 ```{R exp_pdf}
   library(ggplot2)
   df = data.frame(theo=seq(0,max(x),length.out=n), x=x)
   ggplot(df, aes(x=x)) +
-    geom_histogram(aes(y = ..density.., color = "Sampled"), binwidth=0.01) +
-    stat_function(fun=dexp,geom = "line",size=0.7,args=(mean=lambda),aes(color="Analytical")) +
-    ggtitle("Exponential pdf - Sampled vs Analytical") +
+    geom_histogram(aes(y = ..density.., color = "Samples"), binwidth=0.01) +
+    stat_function(fun=dexp,geom = "line",size=0.7,args=(mean=lambda),aes(color="PDF")) +
+    ggtitle("Exponential distribution - Samples vs PDF") +
     labs(x='x', y='density') +
     xlim(0, 1.5)
 ```
@@ -69,32 +68,31 @@ $$
 g(x) = \begin{cases} 
   c x^{\alpha - 1}, \quad 0 < x < 1, \\
   c e^{-x}, \quad 1 \leq x, \\
-  0, \quad otherwise
+  0, \quad \text{otherwise.}
 \end{cases}
 $$
 
 First, note that the normalizing constant $c$ can be found by using the property $\int_{-\infty}^{\infty} g(x) dx = 1$:
-$$
-  \begin{align}
-    1 &= \int_0^1 c x^{\alpha - 1} dx + \int_1^{\infty} c e^{-x} dx \\
-    &= \frac{c}{\alpha} + \frac{c}{e} \\
-    &\Rightarrow c  = \frac{\alpha e}{\alpha + e}
-  \end{align}
-$$
+
+\begin{align}
+  1 &= \int_0^1 c x^{\alpha - 1} dx + \int_1^{\infty} c e^{-x} dx \\
+  &= \frac{c}{\alpha} + \frac{c}{e} \\
+  &\Rightarrow c  = \frac{\alpha e}{\alpha + e}
+\end{align}
+
 Our aim is then to find an analytic expression for the inverse CDF, so that we can sample uniformly from it to generate samples from $g(x)$ in the same way as we did in Part 1. We start off by first finding the CDF $G(X) = P(X \leq x) = \int_{-\infty}^{x} g(x) dx$:
 
-$$
-  \begin{align}
-  G(x) &= \begin{cases}
-    \int_0^xc x^{\alpha - 1} dx ,  \quad x \in (0, 1) \\
-    \int_0^x c x^{\alpha - 1}dx + \int_1^xc e^{-x} dx,  \quad x \in [1, \infty)
-  \end{cases}\\
-  &= \begin{cases}
-    \frac{c}{\alpha} x^\alpha,  \quad x \in (0, 1) \\
-    \frac{c}{\alpha} +c (e^{-1} - e^{-x}),  \quad x \in [1, \infty)
-  \end{cases}
-  \end{align}
-$$
+\begin{align}
+G(x) &= \begin{cases}
+  \int_0^xc x^{\alpha - 1} dx ,  \quad x \in (0, 1) \\
+  \int_0^x c x^{\alpha - 1}dx + \int_1^xc e^{-x} dx,  \quad x \in [1, \infty)
+\end{cases}\\
+&= \begin{cases}
+  \frac{c}{\alpha} x^\alpha,  \quad x \in (0, 1) \\
+  \frac{c}{\alpha} +c (e^{-1} - e^{-x}),  \quad x \in [1, \infty)
+\end{cases}
+\end{align}
+
 
 Then the inverse CDF, $G^{-1}(x)$ is found by solving $G^{-1}(G(x)) = x$. The definition limits for the inverse function is obviously different, and is found by evaluating $G^{-1}(x) = 1$, since this is the $x$-value for which the analytic expression changes for the CDF.
 
@@ -263,16 +261,16 @@ $$
 $$
 
 So in order to maximize the acceptance probability, we have to minimize $c$. Since we have to find a $c$ which is greater than $\frac{f(x)}{g(x)} \forall x \in \mathbb{R}$, the lowest possible $c$ would be the highest value the ratio $\frac{f(x)}{g(x)}$ can attain, i.e.
-$$
-  \begin{align}
-    c &= \sup_x \frac{f(x)}{g(x)} \\
-      &= \sup_x \begin{cases}
-      \frac{e^{-x}}{\Gamma(\alpha)} \left(\frac{1}{\alpha} + \frac{1}{e}\right), \quad &0 < x < 1, \\
-      \frac{x^{\alpha-1}}{\Gamma(\alpha)}\left(\frac{1}{\alpha} + \frac{1}{e}\right), \quad &1 \leq x
-    \end{cases} \\
-    &= \frac{\alpha^{-1} + e^{-1}}{\Gamma(\alpha)}
-  \end{align}
-$$
+
+\begin{align}
+  c &= \sup_x \frac{f(x)}{g(x)} \\
+    &= \sup_x \begin{cases}
+    \frac{e^{-x}}{\Gamma(\alpha)} \left(\frac{1}{\alpha} + \frac{1}{e}\right), \quad &0 < x < 1, \\
+    \frac{x^{\alpha-1}}{\Gamma(\alpha)}\left(\frac{1}{\alpha} + \frac{1}{e}\right), \quad &1 \leq x
+  \end{cases} \\
+  &= \frac{\alpha^{-1} + e^{-1}}{\Gamma(\alpha)}
+\end{align}
+
 
 This means that the lowest acceptance probability we can achieve is $P_\text{a,lowest} = \frac{\Gamma(\alpha)}{\alpha^{-1} + e^{-1}}$. A sampling algorithm which uses this $c$ has been implemented below in `R`. Here we exploit the fact that it on average takes $c$ iterations to generate 1 sample from the target distribution $f(x)$. Then the actual number of samples we need in order to sample $n$ times from $f(x)$ should be pretty close to $n \cdot c$ when $n$ is large. This speeds up the execution significantly, as execution time is of concern only for large $n$. After sampling once, we resample with $c$ times the number of samples we are missing until we have enough samples. This should then converge pretty fast.
 
@@ -346,44 +344,40 @@ $$
 
 so that $C_f \subset [0, a] \times [b_-, b_+]$. The values of $a$, $b_-$ and $b_+$ are found by means of differentiation:
 
-$$
-  \begin{align}
-    \frac{d}{dx}f^*(x) = 0 &\Leftrightarrow e^{-x}(\alpha - x - 1)x^{\alpha-2} = 0 \Rightarrow x = \alpha - 1 \\
-    \Rightarrow a &= \sqrt{f^*(\alpha-1)} \\
-    &= \sqrt{(\alpha-1)^{\alpha-1}e^{1-\alpha}}
-  \end{align}
-$$
 
-$$
-  \begin{align}
+\begin{align}
+  \frac{d}{dx}f^*(x) = 0 &\Leftrightarrow e^{-x}(\alpha - x - 1)x^{\alpha-2} = 0 \Rightarrow x = \alpha - 1 \\
+  \Rightarrow a &= \sqrt{f^*(\alpha-1)} \\
+  &= \sqrt{(\alpha-1)^{\alpha-1}e^{1-\alpha}}
+\end{align}
+
+
+\begin{align}
   \left\{ \frac{d}{dx} x^2 f^*(x) = 0, x \geq 0 \right\} &\Leftrightarrow e^{-x}(\alpha - x + 1) x^\alpha = 0 \Rightarrow  x = \alpha -1 \\
   \Rightarrow b_+ &= \sqrt{x^2 f^*(\alpha - 1)} \\
   &= \sqrt{(\alpha+1)^{\alpha+1}e^{-(\alpha + 1)}}
-  \end{align}
-$$
+\end{align}
 
 $$
   b_- = 0
 $$
 Then $y = x_1 / x_2 \sim \Gamma(\alpha, \beta=1)$ if $x_1$ and $x_2$ are sampled uniformly inside $C_f$. This can be accomplished by letting $x_1 \sim U[0, a]$ and $x_2 \sim U[b_-, b_+]$, and selecting only $(x_1, x_2) \in C_f$. Note that $\alpha$ can grow arbitrarily large, which makes the $x^\alpha$ term in $f(x)$ grow even larger. This would result in numerical overflow in R, and is a problem. To solve this, we can sample in log-scale. Then $\ln x_1$ and $\ln x_2$ are sampled as follows:
 
-$$
-  \begin{align}
-    x_1 &= a \cdot U[0,1] \\ 
-    &\Rightarrow \ln x_1 = \ln a + \ln U[0,1] \\
-    x_2 &= b_- + (b_+ - b_-) \cdot U[0,1] \\
-    &\Rightarrow \ln x_2 = \ln b_+ + \ln U[0,1]
-  \end{align}
-$$
+\begin{align}
+  x_1 &= a \cdot U[0,1] \\ 
+  &\Rightarrow \ln x_1 = \ln a + \ln U[0,1] \\
+  x_2 &= b_- + (b_+ - b_-) \cdot U[0,1] \\
+  &\Rightarrow \ln x_2 = \ln b_+ + \ln U[0,1]
+\end{align}
+
 
 And the condition for checking $(x_1, x_2) \in C_f$ is equivalent to
 
-$$
 \begin{align}
   &\ln x_1 \leq \ln \sqrt{f^*\left(\frac{x_2}{x_1}  \right)} \\
   &\Rightarrow 2 \ln x_1 \leq (\alpha -1) (\ln x_2 - \ln x_1) - \exp(\ln x_2 - \ln x_1)
 \end{align}
-$$
+
 ```{R}
 sample_f_large = function(n, alpha) {
   loga = (alpha - 1)/2 * (log(alpha - 1) - 1)
@@ -498,21 +492,18 @@ $$
 $$
 From bivariate transformations we know that
 
-$$
-  \begin{align}
-    f_{Z, Z'}(z, z') &= f_{X, Y}(g_1^{-1}(z, z'), g_2^{-1}(z, z')) \cdot J_{x,y}(z, z') \\
-    &= f_{X, Y}(z \cdot z', z'-z \cdot z') \cdot J_{x,y}(z, z') \\
-    &= |z'| \frac{1}{\Gamma(\alpha)\Gamma(\beta)}(z\cdot z')^{\alpha-1}(z' - z \cdot z')^{\beta-1} e^{-z'}
-  \end{align}
-$$
+\begin{align}
+  f_{Z, Z'}(z, z') &= f_{X, Y}(g_1^{-1}(z, z'), g_2^{-1}(z, z')) \cdot J_{x,y}(z, z') \\
+  &= f_{X, Y}(z \cdot z', z'-z \cdot z') \cdot J_{x,y}(z, z') \\
+  &= |z'| \frac{1}{\Gamma(\alpha)\Gamma(\beta)}(z\cdot z')^{\alpha-1}(z' - z \cdot z')^{\beta-1} e^{-z'}
+\end{align}
+
 The total probability theorem then yields 
-$$
-  \begin{align}
-    f_Z(z) &= \int_{-\infty}^\infty f_{Z, Z'}(z, z') dz' \\
-    &= \frac{\Gamma(\alpha + \beta)}{\Gamma(\alpha)\Gamma(\beta)} z^{\alpha - 1} (1 - z)^{\beta - 1} , \quad z \in (0, 1) \subset \mathbb{R} \\
-    &\Rightarrow z \sim \text{beta}(\alpha, \beta) \quad \square
-  \end{align}
-$$
+\begin{align}
+  f_Z(z) &= \int_{-\infty}^\infty f_{Z, Z'}(z, z') dz' \\
+  &= \frac{\Gamma(\alpha + \beta)}{\Gamma(\alpha)\Gamma(\beta)} z^{\alpha - 1} (1 - z)^{\beta - 1} , \quad z \in (0, 1) \subset \mathbb{R} \\
+  &\Rightarrow z \sim \text{beta}(\alpha, \beta) \quad \square
+\end{align}
 
 We can thus create a sampler by using this transformation:
 
@@ -690,7 +681,7 @@ generate_samples = function(n) {
 ```
 
 ## Part 2 - Posterior mean
-Estimate the posterior mean of θ by Monte-Carlo integration using n = 10000 samples from f(θ|y):
+Estimate the posterior mean of $\theta$ by Monte-Carlo integration using $n = 10000$ samples from $f(\theta | y)$:
 
 ```{R}
 
@@ -710,10 +701,9 @@ y = generate_samples(n) #Generate samples from the distribution
 
 est_mean = sum(y$samples)/n
 
-cat("Estimated mean: ", sum(y$samples)/n)
-
-cat("Theoretical mean: ", integrate(g, 0, 1)$val/n_c)
-
+cat("Estimated mean: ", sum(y$samples)/n, "Theoretical mean: ", integrate(g, 0, 1)$val/n_c, "\n")
+```
+```{R}
 #Generate histogram
 
 df = data.frame(theo = seq(0, 1, length.out = n), value = y$samples)
