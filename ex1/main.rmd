@@ -400,7 +400,7 @@ sample_f_large = function(n, alpha) {
     log_x2 = logbp + log(runif(1))
     
     if(2*log_x1 <= (alpha - 1)*(log_x2 - log_x1) - exp(log_x2 - log_x1)) {
-      # Accept:
+      # Accept the sample:
       samples = c(samples, exp(log_x2 - log_x1))
     }
   }
@@ -435,8 +435,38 @@ ggplot(df, aes(x = alpha, y = num_iterations)) + geom_line()
 From the plot it seems that the number of iterations $n_i$ required for generating $n$ samples has a $\log\alpha$ dependency, i.e. $n_i \propto \log\alpha$ for a fixed $n$. This is not too bad, since it implies that by increasing $\alpha$ a lot, $n_i$ will increase only slightly.
 
 ## Part 3 - Gamma sampler with arbitrary parameters
+Recall that we created a Gamma sampler for $\alpha \in (0, 1)$ in Part 1 and $\alpha \in (1, \infty)$ in Part 2 for $\beta = 1$. We now want to create a Gamma sampler for an arbitrary $\alpha$ and $\beta$. First, two observations should be made; $\beta$ is simply an inverse scale parameter. In other words, sampling from $\text{Gamma}(\alpha, \beta)$ is equivalent to sampling from $\text{Gamma}(\alpha, 1)$ and then divide by $\beta$. Lastly, $\text{Gamma}(1,1)$ is simply the unscaled exponential distribution. And we already have a sampler for that distribution. So our Gamma sampler should choose one of the three mentioned samplers based on $\alpha$, and then divide the samples by $\beta$. The R code for our Gamma sampler is provided below:
 
-We now want to combine the two Gamma samplers which had a fixed $\beta = 1$, and create a sampler which can sample with arbitrary $\alpha$ and $\beta$. First, note that $\beta$ is an inverse rate parameter, and so $\text{Gamma}(\alpha, \beta) = \text{Gamma}(\alpha, 1)/\beta$(TODO: Skriv om dette vha SV). Second, 
+```{R}
+sample_gamma = function(n, alpha, beta) {
+  unscaled_samples = vector(length=n)
+  if(alpha == 1.) {
+    unscaled_samples = sample_exponential(n, 1)
+  } else if(alpha < 1.) {
+    unscaled_samples = sample_f_small(n, alpha)
+  } else { # alpha > 1.
+    unscaled_samples = sample_f_large(n, alpha)$samples
+  }
+  samples = unscaled_samples/beta
+  return(samples)
+}
+```
+
+Now we can sample from e.g. $\text{Gamma}(10, 2)$ and check that it works as expected:
+```{R}
+n = 100000
+alpha = 100
+beta = 3
+x = sample_gamma(n, alpha, beta)
+df = data.frame(x)
+ggplot(df, aes(x = x)) +
+    geom_histogram(aes(y = ..density.., color = "Sampled"), binwidth=0.1) +
+    stat_function(fun=dgamma,geom = "line",size=1,aes(color='Analytical'),args = list(shape=alpha, rate=beta)) +
+    ggtitle("Gamma distribution with alpha=1000, beta=3") + labs(x='x', y='density')
+```
+## Part 4
+
+
 
 # Part C - Monte Carlo integration and variance reduction
 
