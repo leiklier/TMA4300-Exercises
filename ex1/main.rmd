@@ -447,7 +447,7 @@ sample_gamma = function(n, alpha, beta) {
   } else { # alpha > 1.
     unscaled_samples = sample_f_large(n, alpha)$samples
   }
-  samples = unscaled_samples/beta
+  samples = unscaled_samples/as.double(beta)
   return(samples)
 }
 ```
@@ -460,11 +460,80 @@ beta = 3
 x = sample_gamma(n, alpha, beta)
 df = data.frame(x)
 ggplot(df, aes(x = x)) +
-    geom_histogram(aes(y = ..density.., color = "Sampled"), binwidth=0.1) +
+    geom_histogram(aes(y = ..density.., color = "Sampled"), binwidth=0.01) +
     stat_function(fun=dgamma,geom = "line",size=1,aes(color='Analytical'),args = list(shape=alpha, rate=beta)) +
+    # ylim(0,1) +
     ggtitle("Gamma distribution with alpha=1000, beta=3") + labs(x='x', y='density')
 ```
 ## Part 4
+
+Now we want to create a sampler for the $\text{beta}(\alpha, \beta)$ distribution. Define the independent stochastic variables $X \sim \text{Gamma}(\alpha, 1)$, $Y \sim \text{Gamma}(\beta, 1)$. Their joint distribution is
+
+$$
+  f_{X,Y}(x, y) = f_X(x) \cdot f_Y(y) = \frac{1}{\Gamma(\alpha)\Gamma(\beta)} x^{\alpha-1}y^{\beta-1}\exp\left(x + y\right) \quad \forall \quad  (x, y) \in \mathbb{R}^2
+$$
+
+Define the transformations
+
+$$
+  z = g_1(x, y) = \frac{x}{x+y}\\
+  z' =g_2(x, y) =  x + y
+$$
+The inverse transformations then becomes
+
+$$
+  x = g_1^{-1}(z, z') = z \cdot z' \\
+  y = g_2^{-1}(z, z') = z' - z \cdot z' 
+$$
+The Jacobian of the transformation is found as
+
+$$
+  J_{x,y}(z, z') = \det \begin{pmatrix} 
+    \frac{\partial x}{\partial z} & \frac{\partial x}{\partial z'} \\
+    \frac{\partial y}{\partial z} & \frac{\partial y}{\partial z'} 
+  \end{pmatrix} = \det \begin{pmatrix}
+    z' & z \\
+    -z' & 1 - z
+  \end{pmatrix} = z'(1-z) + z\cdot z'
+$$
+From bivariate transformations we know that
+
+$$
+  \begin{align}
+    f_{Z, Z'}(z, z') &= f_{X, Y}(g_1^{-1}(z, z'), g_2^{-1}(z, z')) \cdot J_{x,y}(z, z') \\
+    &= f_{X, Y}(z \cdot z', z'-z \cdot z') \cdot J_{x,y}(z, z') \\
+    &= |z'| \frac{1}{\Gamma(\alpha)\Gamma(\beta)}(z\cdot z')^{\alpha-1}(z' - z \cdot z')^{\beta-1} e^{-z'}
+  \end{align}
+$$
+The total probability theorem then yields 
+$$
+  \begin{align}
+    f_Z(z) &= \int_{-\infty}^\infty f_{Z, Z'}(z, z') dz' \\
+    &= \frac{\Gamma(\alpha + \beta)}{\Gamma(\alpha)\Gamma(\beta)} z^{\alpha - 1} (1 - z)^{\beta - 1} , \quad z \in (0, 1) \subset \mathbb{R} \\
+    &\Rightarrow z \sim \text{beta}(\alpha, \beta) \quad \square
+  \end{align}
+$$
+
+We can thus create a sampler by using this transformation:
+
+```{R}
+  sample_beta = function(n, alpha, beta) {
+    x = sample_gamma(n, alpha, 1)
+    y = sample_gamma(n, beta, 1)
+    z = x/(x+y)
+    return(z)
+  }
+```
+The sampler should first be evaluated in terms of mean and variance. This has been done in the code block below:
+
+```{R}
+  n = 10000
+  alpha = 5
+  beta = 10
+  x = sample_beta(n, alpha, beta)
+  cat("Theoretical mean:", alpha/(alpha+beta), "Sample mean:", mean(x), "\n")
+  cat("Theoretical variance", alpha*beta/((alpha+beta)^2*(alpha + beta + 1)), "Sample variance:", var(x), "\n")
+```
 
 
 
@@ -472,7 +541,7 @@ ggplot(df, aes(x = x)) +
 
 ## Part 1 - Monte carlo estimation
 
-In order to estimate $\theta=Prob(x>4)$ given $x \sim N_d(0, 1)$ it is possible to generate n number of samples from the normal distribution and check which portion is over 4.
+In order to estimate $\theta=Prob(x > 4)$ given $x \sim N_d(0, 1)$ it is possible to generate n number of samples from the normal distribution and check which portion is over 4.
 
 ```{R}
 
@@ -494,7 +563,6 @@ cat(est*100, " percent.")
 confidence_interval = est + c(-1, 1)*qnorm(.975)*sqrt(var(x)/n)
 
 cat("Confidence:", confidence_interval*100, "percent.")
-
 ```
 
 # Part D - Rejection sampling and importance sampling
