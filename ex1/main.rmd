@@ -241,9 +241,9 @@ print("Covariance matrix:")
 print.data.frame(data.frame(covmat))
 ```
 
-# Part B
+# Problem B
 
-## Problem 1
+## Part 1
 
 We want to find a way to sample from a gamma distribution $f(x)$ with parameters $\alpha \in (0, 1)$ and $\beta = 1$ as defined below. In order to do this, we can use rejection sampling with $g(x)$ as the proposal distribution. This is possible because the support of $g(x)$ includes the support of $f(x)$; in other words, $g(x) > 0$ whenever $f(x) > 0$. As a consequence of this, there exists a $c > 1$ such that $\left\{\frac{f(x)}{g(x)} \leq c, x : f(x) > 0\right\}$. 
 
@@ -528,11 +528,11 @@ The sampler should first be evaluated in terms of mean and variance. This has be
 
 
 
-# Part C - Monte Carlo integration and variance reduction
+# Problem C - Monte Carlo integration and variance reduction
 
 ## Part 1 - Monte carlo estimation
 
-In order to estimate $\theta=Prob(x > 4)$ given $x \sim N_d(0, 1)$ it is possible to generate n number of samples from the normal distribution and check which portion is over 4.
+In order to estimate $\theta=Prob(x > 4)$ given $x \sim N_d(0, 1)$ it is possible to generate n number of samples from the normal distribution and check which portion is over 4. This is done by using 100000 samples. This is implemented in R in the following way:
 
 ```{R}
 
@@ -540,6 +540,8 @@ In order to estimate $\theta=Prob(x > 4)$ given $x \sim N_d(0, 1)$ it is possibl
 generate_monte_carlo_samples = function(n) {
   x = sample_standard_normal(n)
   samples = rep(NA, n)
+  
+  #Set all values above 4 to 1 and all below to 0
   samples[x > 4] = 1
   samples[x <= 4] = 0
   return(samples)
@@ -556,24 +558,46 @@ cat("Confidence:", confidence_interval, "\n")
 ```
 
 # Part 2 - Importance sampling
+It is possible to estimate $\theta=Prob(x > 4)$ given $x \sim N_d(0, 1)$ it is possible to use importance sampling for variance reduction.
 
-Algoritmen:
-1. Sample fra g(x)
-2. Regn ut w(x) * 1_{x>=4}
-3. Multipliser alle elementene fra steg 2 og del på n
-4. Ferdig
+$$ \hat{\mu}_{IS} = \frac{1}{n} \sum \theta_i w_i.$$
 
+In this task sampling from the equation below will be used:
+$$
+  g(x) = \begin{cases}
+    c x^{-\frac{1}{2}x^2}, \quad &4>x \\
+    0, &\text{otherwise.}
+  \end{cases}
+$$
+The normalizing constant $c$ is calculated to be $e^8$ by setting the boundaries of the integral of g(x) from -infinity to infinity to 1.
+
+To sample from g(x) inversion sample is used. The inverse of the cdf is
+
+$$
+X = \sqrt{16-2ln(1-u)}
+$$
+where u is an uniform variable between 0 and 1.
+
+Then the weighted sample w(x) * 1_{x>=4} from g(x) has to be calculated.
+
+g(x) is sampled, where all samples from g(x) > 4 is set to 1 while the samples below is set to 0. Next, the samples has to be weighed according to the weight function:
+
+$$
+w(x)= \frac{f(x)}{g(x)} = \frac{1}{c \sqrt{2 \pi} x}
+$$
+
+When $n$ weighted samples from g(x) is created, the mean of these samples will be the expected value of $\theta=Prob(x > 4)$ given $x \sim N_d(0, 1)$.
 
 ```{R}
 
-#Draw sample from g(x) using inverse transform
-
 generate_weighted_samples = function(n) {
   samples = rep(NA, n)
-  sample_u = runif(n)
-  sample_x = sqrt(16-2*log(1-sample_u)) #Inverse sampling from G
+  sample_u = runif(n) #Generate uniform samples
+  sample_x = sqrt(16-2*log(1-sample_u)) #Inverse sampling from G(x)
   samples[ sample_x <= 4.] = 0
-  samples[ sample_x > 4.] = 1/(exp(8)*sqrt(2*pi)*sample_x[ sample_x > 4.])
+  
+  #Calculate 1*w(x) for all samples of X > 4
+  samples[ sample_x > 4.] = 1/(exp(8)*sqrt(2*pi)*sample_x[ sample_x > 4.]) 
   
   return(samples)
 }
@@ -591,12 +615,16 @@ cat("Estimated:", est, "\n")
 cat("COnfidence interval:", confidence_interval, "\n")
 
 
-cat("Interval width:", confidence_interval[1]-confidence_interval[0])
-
-
 ```
 
+The confidence interval of the estimation with importance sampling is much more precise with the same number of samples at it has more samples in the region of interest. To obtail the same precision by using Mont Carlo Integration one would need ... samples.
+
+
 ## Part 3a)
+
+An implementation of the algorithm presented in C2 with anthithetic variables is implemented in R the following way:
+
+
 ```{R}
 
 #Draw sample from g(x) using inverse transform
@@ -604,10 +632,12 @@ cat("Interval width:", confidence_interval[1]-confidence_interval[0])
 generate_weighted_samples_anth = function(n) {
   samples = rep(NA)
   samples_u_1 = runif(n)
-  samples_u_2 = 1 - samples_u_1
-  samples_u = c(samples_u_1, samples_u_2)
-  sample_x = sqrt(16-2*log(1-samples_u)) #Inverse
+  samples_u_2 = 1 - samples_u_1 # Calculate the antithetic variates
+  samples_u = c(samples_u_1, samples_u_2) # Combine the variates
+  sample_x = sqrt(16-2*log(1-samples_u)) #Inverse sampling from G(x)
   samples[ sample_x <= 4.] = 0
+  
+  #Calculate 1*w(x) for all samples of X > 4
   samples[ sample_x > 4.] = 1/(exp(8)*sqrt(2*pi)*sample_x[ sample_x > 4.])
   
   return(samples)
@@ -616,6 +646,9 @@ generate_weighted_samples_anth = function(n) {
 ```
 
 ## Part 3b)
+
+To get a fair comparison of the functions, 50000, half of 100000 is used as it generates twice the amount of samples for each n.
+
 
 ```{R}
 n = 50000
@@ -630,19 +663,22 @@ cat("Estimated:", est, "\n")
 
 cat("COnfidence interval:", confidence_interval, "\n")
 
-cat("Interval width:", confidence_interval[1]-confidence_interval[0])
-
 
 ```
 
-Konfidensintervallet blir smalere
-
-Fordi man får dobbelt så mange datapunkter
+One can see that the confidence intervals are approxomatily the same for both functions, even though half the uniform variables are created.
 
 
 # Part D - Rejection sampling and importance sampling
 
 ## Part 1 - Rejection sampling algorithm
+
+In order to sample from
+$$ 
+f(\theta \lvert \mathbf{y}) \propto (2 + \theta)^{y_1}(1-\theta)^{y_2 + y_3}\theta^{y_4}, \quad \theta \in (0, 1)
+$$
+a rejection algorithm is created. $f(\theta \lvert \mathbf{y})$ is sampled using $U(0, 1)$. This is implemented in R the following way:
+
 
 ```{R}
 
@@ -704,25 +740,32 @@ est_mean = sum(y$samples)/n
 cat("Estimated mean: ", sum(y$samples)/n, "Theoretical mean: ", integrate(g, 0, 1)$val/n_c, "\n")
 ```
 ```{R}
+
 #Generate histogram
 
 df = data.frame(theo = seq(0, 1, length.out = n), value = y$samples)
 
-#TODO: Add caption
 ggplot(df, aes(x = value)) + geom_histogram(aes(y = ..density.., colour = "Sampled"), 
     binwidth = 0.001) + stat_function(fun = dna_func_density, geom = "line", 
     size = 1.6, aes(colour = "Analytical")) + ggtitle("Analytical vs sampled density") + 
     xlim(0, 1) + geom_segment(x = sum(y$samples)/n, xend = sum(y$samples)/n, 
     y = 0, yend = 100, aes(colour = "Mean"), size = 1.2, linetype = "longdash") + 
-    labs(x = "x", y = "density", caption = paste("Caption"))
+    labs(x = "x", y = "density", caption = paste("Sampled density compared to the the analytical density distribution."))
 
 ```
 
 ## Part 3 - Average random numbers per sample
-TODO: Add explenation
-
+The expected number random numbers the rejection sampling algorithm has to create to obtain one sample from $f(\theta | y)$ is $c \geq f(x)/g(x)$. $c$ is chosen as small as possible for the algorthm to be as efficient as possible, resulting in $c = max f(x)/g(x)$. $g(x)=U(0,1) = 1$, meaning $c = max f(x)$.
 ```{R}
 cat("Average random numbers per sample: ",y$iterations/n)
 cat("Theoretical expected numbers per sample: ", target_c$objective/n_c)
 
 ```
+As one can see the average random numbers per sample and theoretical expected random numbers coincide.
+
+
+## Part 4 - 
+
+
+
+
