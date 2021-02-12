@@ -778,7 +778,9 @@ In order to sample from
 $$ 
 f(\theta \lvert \mathbf{y}) \propto (2 + \theta)^{y_1}(1-\theta)^{y_2 + y_3}\theta^{y_4}, \quad \theta \in (0, 1)
 $$
-a rejection algorithm is created. $f(\theta \lvert \mathbf{y})$ is sampled using $U(0, 1)$. This is implemented in R the following way:
+a rejection sampling algorithm may be used. $f(\theta \lvert \mathbf{y})$ is sampled using $U(0, 1)$ as the proposal density. This can be used as the proposal density as the uniform density is nonzero for all values where $f(\theta \lvert \mathbf{y})$ is nonzero.
+
+This is implemented in R the following way:
 
 
 ```{R}
@@ -818,7 +820,7 @@ generate_samples = function(n) {
 ```
 
 ## Part 2 - Posterior mean
-Estimate the posterior mean of $\theta$ by Monte-Carlo integration using $n = 10000$ samples from $f(\theta | y)$:
+The posterior mean $\theta$ can be estimated by Monte-Carlo integration using $N = 10000$ samples from $f(\theta | y)$.
 
 ```{R}
 
@@ -856,7 +858,7 @@ ggplot(df, aes(x = value)) + geom_histogram(aes(y = ..density.., colour = "Sampl
 ```
 
 ## Part 3 - Average random numbers per sample
-The expected number random numbers the rejection sampling algorithm has to create to obtain one sample from $f(\theta | y)$ is $c \geq f(x)/g(x)$. $c$ is chosen as small as possible for the algorthm to be as efficient as possible, resulting in $c = max f(x)/g(x)$. $g(x)=U(0,1) = 1$, meaning $c = max f(x)$.
+The expected number of random numbers the rejection sampling algorithm has to create to obtain one sample from $f(\theta | y)$ is $c \geq f(x)/g(x)$. $c$ is chosen as small as possible for the algorthm to be as efficient as possible, resulting in $c = max f(x)/g(x)$. $g(x)=U(0,1) = 1$, meaning $c = max f(x)$.
 ```{R}
 cat("Average random numbers per sample: ",y$iterations/n)
 cat("Theoretical expected numbers per sample: ", target_c$objective/n_c)
