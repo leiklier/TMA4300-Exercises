@@ -2,13 +2,13 @@
 --- 
 title: 'TMA4300 Computer Intensive Statistical Methods Exercise 1, Spring 2021'
 output:
-  pdf_document:
-    toc: no
-    toc_depth: '2'
   html_document:
     toc: yes
     toc_depth: 2
     toc_float: yes
+  pdf_document:
+    toc: no
+    toc_depth: '2'
 date: "`r format(Sys.time(), '%d.%m.%Y')`"
 subtitle: 'Group members: Eide, Jonathan and Lima-Eriksen, Leik'
 ---
@@ -654,7 +654,9 @@ cat("Confidence:", confidence_interval, "\n")
 # Part 2 - Importance sampling
 It is possible to estimate $\theta=Prob(x > 4)$ given $x \sim N_d(0, 1)$ it is possible to use importance sampling for variance reduction.
 
-$$ \hat{\mu}_{IS} = \frac{1}{n} \sum \theta_i w_i.$$
+$$
+\hat{\mu}_{IS} = \frac{1}{n} \sum h(x_i) w_i.
+$$
 
 In this task sampling from the equation below will be used:
 $$
@@ -663,7 +665,12 @@ $$
     0, &\text{otherwise.}
   \end{cases}
 $$
-The normalizing constant $c$ is calculated to be $e^8$ by setting the boundaries of the integral of g(x) from -infinity to infinity to 1.
+The normalizing constant $c$ is calculated to be $e^8$ by setting the boundaries of the integral of g(x) from 4 to infinity to 1.
+$$
+1 = \int_4^\inf c g(x)dx \\
+=>c = e^8
+$$
+
 
 To sample from g(x) inversion sample is used. The inverse of the cdf is
 
@@ -777,15 +784,15 @@ a rejection algorithm is created. $f(\theta \lvert \mathbf{y})$ is sampled using
 ```{R}
 
 #Function to be sampled from
-dna_function = function(x) {
+f_function = function(x) {
     return((2 + x)^125 * (1 - x)^38 * x^34)
 }
 
-#Find highest value of dna_function to set as max c
-target_c = optimize(dna_function, c(0, 1), maximum = TRUE)
+#Find highest value of f_function to set as max c
+target_c = optimize(f_function, c(0, 1), maximum = TRUE)
 
 #Find normalizing constant
-n_c = integrate(dna_function, 0, 1)$val
+n_c = integrate(f_function, 0, 1)$val
 
 generate_samples = function(n) {
     samples = rep(NA, n)
@@ -794,7 +801,7 @@ generate_samples = function(n) {
         done = 0
         while (done == 0) {
             x_sample = runif(1)  # Proposal sample
-            a = dna_function(x_sample)/target_c$objective #Acceptance probability
+            a = f_function(x_sample)/target_c$objective #Acceptance probability
             u = runif(1) #Used to determine acceptance
             # Accept if u<a(alpha)
             if (u <= a) {
@@ -819,11 +826,11 @@ n = 10000
 
 # Function used to find actual mean
 g = function(x) {
-  return(x*dna_function(x)*x)
+  return(x*f_function(x)*x)
 }
 
-dna_func_density = function(x) {
-  return(dna_function(x)/n_c)
+f_func_density = function(x) {
+  return(f_function(x)/n_c)
 }
 
 
@@ -840,7 +847,7 @@ cat("Estimated mean: ", sum(y$samples)/n, "Theoretical mean: ", integrate(g, 0, 
 df = data.frame(theo = seq(0, 1, length.out = n), value = y$samples)
 
 ggplot(df, aes(x = value)) + geom_histogram(aes(y = ..density.., colour = "Sampled"), 
-    binwidth = 0.001) + stat_function(fun = dna_func_density, geom = "line", 
+    binwidth = 0.001) + stat_function(fun = f_func_density, geom = "line", 
     size = 1.6, aes(colour = "Analytical")) + ggtitle("Analytical vs sampled density") + 
     xlim(0, 1) + geom_segment(x = sum(y$samples)/n, xend = sum(y$samples)/n, 
     y = 0, yend = 100, aes(colour = "Mean"), size = 1.2, linetype = "longdash") + 
@@ -858,8 +865,51 @@ cat("Theoretical expected numbers per sample: ", target_c$objective/n_c)
 As one can see the average random numbers per sample and theoretical expected random numbers coincide.
 
 
-## Part 4 - 
+## Part 4 - Obtaining samples without uniform prior
+In this task the posterior mean of $\theta$ will be estimated using $Beta(1,5)$ as prior. The posterior pdf is then
 
+$$ 
+f(\theta \lvert \mathbf{y}) \propto (2 + \theta)^{y_1} ( 1 - \theta)^{y_2 + y_3}\theta^{y_4} \frac{\Gamma(1+5)}{\Gamma(1) \Gamma(5)} \theta^{0} (1-\theta)^{4}.
+$$
+To improve efficiency, the old function could be used as the proposal density:
+$$
+f_{old}(\theta \lvert \mathbf{y}) \propto (2 + \theta)^{y_1} ( 1 - \theta)^{y_2 + y_3}\theta^{y_4}
+$$
+The importance sampling posterior mean is then
+$$
+\hat{\mu}_{IS} = \frac{1}{n} \sum \theta_i w_i.
+$$
+The weights will be 
 
+$$
+w_i = \frac{f_{new}(\theta_i \lvert y)}{ f_{old}(\theta_i \lvert y) }  \propto  \pi_n(\theta_i) / \pi_o(\theta_i) =  \frac{\Gamma(1+5)}{\Gamma(1) \Gamma(5)} (1-\theta_i)^{4}
+$$
+```{R}
+# Target pdf, unscaled
+posterior_target_unscaled = function(x) {
+    return(f_func_density(x) * dbeta(x, 1, 5))
+}
 
+#Compute normalizing constant
+n_c_posterior = integrate(posterior_target_unscaled, 0, 1)$value
+
+# Normalized posterior target pdf
+posterior_target_scaled = function(x) {
+    return(posterior_target_unscaled(x)/n_c_posterior)
+}
+
+# Density: f_new(x) * x
+posterior_target_mean_density = function(x) {
+    return(x * posterior_target_scaled(x))
+}
+
+theoretical_mean = integrate(posterior_target_mean_density, 0, 1)$value
+
+weights = posterior_target_scaled(y$samples)/f_func_density(y$samples)
+posterior_mean = sum(y$samples * weights)/n
+cat("Posterior mean estimate:", posterior_mean, "Analytical posterior mean:", theoretical_mean, "\n")
+
+```
+
+The IS posterior mean estimate and analytical mean are close to each other, meaning the bias introdused by estimating the new mean is small enough.
 
