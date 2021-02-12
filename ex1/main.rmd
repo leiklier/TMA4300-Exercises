@@ -2,13 +2,13 @@
 --- 
 title: 'TMA4300 Computer Intensive Statistical Methods Exercise 1, Spring 2021'
 output:
+  pdf_document:
+    toc: no
+    toc_depth: '2'
   html_document:
     toc: yes
     toc_depth: 2
     toc_float: yes
-  pdf_document:
-    toc: no
-    toc_depth: '2'
 date: "`r format(Sys.time(), '%d.%m.%Y')`"
 subtitle: 'Group members: Eide, Jonathan and Lima-Eriksen, Leik'
 ---
@@ -27,7 +27,10 @@ The exponential distribution with rate parameter $\lambda$ has CDF $F(x) = 1 - e
 This is implemented in R the following way:
 ```{R, echo = T}
   sample_exponential = function(n, lambda) {
+    # Sample n times from U[0, 1]
     u = runif(n)
+    
+    # Evaluate inverse CDF in u:
     return(-1/lambda * log(u))
   }
 ```
@@ -35,10 +38,15 @@ This is implemented in R the following way:
 We then want to make sure that our function works correctly. We start off by checking that the sample mean matches the expected value $E[x] = \frac{1}{\lambda}$, and that the sample variance matches the variance $Var[x] = \frac{1}{\lambda^2}$:
 
 ```{R}
+  # Parameters
   n = 100000
   lambda = 3.2
   
+  # Draw n samples from exponential distribution
+  # with rate parameter lambda:
   x = sample_exponential(n, lambda)
+  
+  # Compare theoretical and sample mean and variance:
   cat("Theoretical mean:", 1/lambda, "Sample mean", mean(x), "\n")
   cat("Theoretical variance:", 1/lambda^2, "Sample variance", var(x), "\n")
 ```
@@ -49,7 +57,9 @@ We then proceed to verify that the samples ensemble the same distribution as the
 
 ```{R exp_pdf}
   library(ggplot2)
-  df = data.frame(theo=seq(0,max(x),length.out=n), x=x)
+  # Plot the samples which we generated in the
+  # previous code block, together with the pdf
+  df = data.frame(x=x)
   ggplot(df, aes(x=x)) +
     geom_histogram(aes(y = ..density.., color = "Samples"), binwidth=0.01) +
     stat_function(fun=dexp,geom = "line",size=0.7,args=(mean=lambda),aes(color="PDF")) +
@@ -60,15 +70,15 @@ We then proceed to verify that the samples ensemble the same distribution as the
 
 From the plot we see that the samples follow the exponential distribution perfectly. We thereby conclude that the function samples as expected.
 
-## Part 2
+## Part 2 - Piecewise continuous pdf
 
-We then want to create a function for sampling from the pdf $g(x)$ as shown below. 
+We then want to create a function for sampling from the piecewise continuous pdf $g(x)$ as shown below. 
 
 $$
 g(x) = \begin{cases} 
-  c x^{\alpha - 1}, \quad 0 < x < 1, \\
-  c e^{-x}, \quad 1 \leq x, \\
-  0, \quad \text{otherwise.}
+  c x^{\alpha - 1}, \quad &0 < x < 1, \\
+  c e^{-x}, \quad &1 \leq x, \\
+  0, \quad &\text{otherwise.}
 \end{cases}
 $$
 
@@ -77,19 +87,19 @@ First, note that the normalizing constant $c$ can be found by using the property
 \begin{align}
   1 &= \int_0^1 c x^{\alpha - 1} dx + \int_1^{\infty} c e^{-x} dx \\
   &= \frac{c}{\alpha} + \frac{c}{e} \\
-  &\Rightarrow c  = \frac{\alpha e}{\alpha + e}
+  \Rightarrow c  &= \frac{\alpha e}{\alpha + e}
 \end{align}
 
 Our aim is then to find an analytic expression for the inverse CDF, so that we can sample uniformly from it to generate samples from $g(x)$ in the same way as we did in Part 1. We start off by first finding the CDF $G(X) = P(X \leq x) = \int_{-\infty}^{x} g(x) dx$:
 
 \begin{align}
 G(x) &= \begin{cases}
-  \int_0^xc x^{\alpha - 1} dx ,  \quad x \in (0, 1) \\
-  \int_0^x c x^{\alpha - 1}dx + \int_1^xc e^{-x} dx,  \quad x \in [1, \infty)
+  \int_0^xc x^{\alpha - 1} dx ,  \quad &x \in (0, 1) \\
+  \int_0^x c x^{\alpha - 1}dx + \int_1^xc e^{-x} dx,  \quad &x \in [1, \infty)
 \end{cases}\\
 &= \begin{cases}
-  \frac{c}{\alpha} x^\alpha,  \quad x \in (0, 1) \\
-  \frac{c}{\alpha} +c (e^{-1} - e^{-x}),  \quad x \in [1, \infty)
+  \frac{c}{\alpha} x^\alpha,  \quad &x \in (0, 1) \\
+  \frac{c}{\alpha} +c (e^{-1} - e^{-x}),  \quad &x \in [1, \infty)
 \end{cases}
 \end{align}
 
@@ -105,23 +115,42 @@ $$
 $$
 
 
-To sample from $g(x)$ is then equivalent to generate $u \sim U[0,1]$, and evaluate $G^{-1}(u)$. Below the `density_g` function allows us to evaluate the density analytically for given values of $x$. Furthermore, `sample_g` is used to sample from $g$ using the inverse CDF as previously specified.
+To sample $x \sim g(x)$ is then equivalent to sampling $u \sim U[0,1]$, and evaluate $ x = G^{-1}(u)$. Below the `density_g` function allows us to evaluate the density analytically for given values of $x$. Furthermore, `sample_g` is used to sample from $g$ using the inverse CDF as previously specified.
 
 ```{R, echo = T, eval = T}
+  # Define the pdf for g(x):
   density_g = function(x, alpha) {
+    # Normalizing constant c:
     c = alpha*exp(1)/(alpha + exp(1))
+    
+    # Create an empty vector of same length as x:
     density = vector(length = length(x))
+    
+    # All elements corresponding to x < 1:
     density[x < 1.] = c*x[x<1.]^(alpha-1)
+    
+    # All elements corresponding to x >= 1:
     density[x >= 1.] = c*exp(-x[x>=1.])
     return(as.double(density))
   }
 
-
+  # Sampler for g(x):
   sample_g = function(n, alpha) {
+    # Normalizing constant c:
     c = (alpha * exp(1)) / (alpha + exp(1))
+    
+    # Draw n samples from U[0, 1]
     u = runif(n)
-    samples = vector(length=length(u))
+    
+    # Create an empty vector of length n:
+    samples = vector(length=n)
+    
+    # Set all elements corresponding to u < c/alpha
+    # equal to the equation as defined in the inverse CDF:
     samples[u < c/alpha] = (alpha/c*u[u < c/alpha])^(1/alpha)
+    
+    # Set all elements corresponding to u >= c/alpha
+    # equal to the equation as defined in the inverse CDF:
     samples[u >= c/alpha] = log(c / (1 - u[u >= c/alpha]))
     return(samples)
   }
@@ -139,63 +168,83 @@ $$
 For $n=1\text{E+5}$ samples with $\alpha = 0.7$, the empirical and theoretical mean and variances are respectively:
 
 ```{R, echo = T, eval = T}
-  n=100000
+  # Parameters:
+  n = 100000
   alpha = 0.7
+  
+  # Draw n samples from our g(x) sampler
+  # with parameter alpha:
   x = sample_g(n, alpha)
+  
+  # Normalizing constant:
   c = (alpha * exp(1)) / (alpha + exp(1))
+  # Theoretical mean and variance use the expressions as defined above
   cat("Theoretical mean:", c/(alpha+1) + 2*c/exp(1), "Sample mean:", mean(x), "\n")
   cat("Theoretical variance:", c/(alpha+2) + 5*c/exp(1) - (c/(alpha+1) + 2*c/exp(1))^2, "Sample variance:", var(x), "\n")
 ```
 
-Lastly, we create a histogram of the samples with the analytic density superimposed. It seems that they coincides well. 
+Lastly, we create a histogram of the samples with the pdf superimposed. They seem to coincide well. 
 ```{R}
   library(ggplot2)
-  df <- data.frame(theo=seq(0,max(x),length.out=n), x=x)
+  df = data.frame( x=x)
   ggplot(df, aes(x = x)) +
-    geom_histogram(aes(y = ..density.., color = "Sampled"), binwidth=0.01) +
-    stat_function(fun=density_g,geom = "line",size=0.5,args=(mean=alpha),aes(color="Analytical")) + 
+    geom_histogram(aes(y = ..density.., color = "Samples"), binwidth=0.01) +
+    stat_function(fun=density_g,geom = "line",size=0.5,args=(mean=alpha),aes(color="PDF")) + 
     xlim(0, 2) + 
-    ggtitle("Piecewise continuous pdf - Sampled vs Analytical") + labs(x='x', y='density')
+    ggtitle("Piecewise continuous pdf g(x) - Samples vs PDF") + labs(x='x', y='density')
 ```
 
 ## Part 3 - The Box-Muller Algorithm
 
-In order to generate $n$ independent samples from the standard normal distribution, we can use the Box-Muller algorithm. The algorithm makes it possible to generate two iid. samples from $N(0,1)$ according to $y_1 = \sqrt x_2 \cos x_1$ and $y_2 = \sqrt x_2 \sin x_1$ where $x_1 \sim U[0, 2\pi]$ and $x_1 \sim exp(1/2)$. $x_1$ can be generated using `runif(0, 2*pi)`. For $x_2$ we can reuse the function `sample_exponential` we created in Part 1 to simulate from the exponential distribution with rate parameter $\lambda = 1/2$. Since all samples are iid, this also scales to $n$ samples. It should be noted that is is way faster to do this in a vectorized fashion. Since it only works for even numbers, we have to remove the last sample we generated if $n$ is odd.
+In order to generate $n$ independent samples from the standard normal distribution, we can use the Box-Muller algorithm. The algorithm makes it possible to generate two i.i.d. samples from $N(0,1)$ according to $y_1 = \sqrt x_2 \cos x_1$ and $y_2 = \sqrt x_2 \sin x_1$, where $x_1 \sim U[0, 2\pi]$ and $x_1 \sim \exp(1/2)$. $x_1$ can be generated using `runif(0, 2*pi)`. For $x_2$ we can reuse the function `sample_exponential` we created in Problem A, Part 1 to sample from the exponential distribution with rate parameter $\lambda = 1/2$. Since all samples are i.i.d., this also scales to $n$ samples. The algorithm has been implemented in a vectorized fashion for optimal performance. Since it only works for generating an even number of samples, we have to remove the last sample we generated if $n$ is odd.
 
 ```{R, echo=T}
+  # Function to sample n times from N(0, 1):
   sample_standard_normal = function(n) {
     num_samples = n
     if((n %% 2) == 1) {
       # n is odd, so we should sample one extra:
       num_samples = num_samples + 1
-  }
-    x_1 = runif(num_samples/2, 0, 2*pi)
-    x_2 = sample_exponential(num_samples/2, lambda=1/2)
-    y_1 = sqrt(x_2) * cos(x_1)
-    y_2 = sqrt(x_2) * sin(x_1)
-    # Remove the last sample if n is odd:
-    return(c(y_1, y_2)[0:n])
+    }
+    
+    # Sample from U[0, 2*pi]:
+    x1 = runif(num_samples/2, 0, 2*pi)
+    # Sample from exp(1/2):
+    x2 = sample_exponential(num_samples/2, lambda=1/2)
+    
+    # Perform the transformations as defined above:
+    y1 = sqrt(x2) * cos(x1)
+    y2 = sqrt(x2) * sin(x1)
+    
+    # Remove the last sample if n is odd, 
+    # and concatenate the vectors together to retrieve
+    # n samples:
+    return(c(y1, y2)[0:n])
   }
 ```
 
-We then evaluate the validity in terms of moments by comparing theoretical and empirical variation and mean when drawing $n = 1\text{E+5}$ samples using the `sample_standard_normal` function as defined above:
+We then evaluate the validity in terms of moments by comparing theoretical and empirical variance and mean when drawing $n = 1\text{E+5}$ samples using the `sample_standard_normal` function as defined above:
 
 ```{R, echo=T}
+  # Parameters:
   n = 100000
-  y = sample_standard_normal(n)
-  cat("Theoretical mean:", 0, "Sample mean:", mean(y), "\n")
-  cat("Theoretical variance:", 1, "Sample variance:", var(y), "\n")
+
+  # Draw n samples from N(0,1):
+  x = sample_standard_normal(n)
+  
+  cat("Theoretical mean:", 0, "Sample mean:", mean(x), "\n")
+  cat("Theoretical variance:", 1, "Sample variance:", var(x), "\n")
 ```
 
-As we see, the moments are matching well. As for the distribution of the samples versus the analytic distribution, this has been show below. As you see, The samples overlaps well with the analytic expression:
+As we see, the moments are matching well. As for the distribution of the samples versus the analytic distribution, this has been show below. The samples overlaps well with the analytic expression:
 
 ```{R}
-  library(ggplot2)
-  df = data.frame(theo=seq(0,max(x),length.out=n), x=y)
-  ggplot(df, aes(x=y)) +
-    geom_histogram(aes(y = ..density.., color = "Sampled"), binwidth=0.01) +
-    stat_function(fun=dnorm,geom = "line",size=0.7,args=list(0,1),aes(color="Analytic")) +
-    ggtitle("Standard normal distribution - Sampled vs Analytic") +
+  # Plot the samples from N(0, 1) in a histogram together with the pdf
+  df = data.frame(x=x)
+  ggplot(df, aes(x=x)) +
+    geom_histogram(aes(y = ..density.., color = "Samples"), binwidth=0.01) +
+    stat_function(fun=dnorm,geom = "line",size=0.7,args=list(0,1),aes(color="PDF")) +
+    ggtitle("Standard normal distribution N(0, 1) - Samples vs pdf") +
     labs(x='x', y='density')
 ```
 
@@ -204,17 +253,23 @@ As we see, the moments are matching well. As for the distribution of the samples
 Given $x \sim N_d(0, 1)$, we know that by linear transformation, 
 
 $$
-  \pmb{y} = A\pmb{x} + \pmb{\mu} \sim N_d(\pmb{\mu}, A A^T)
+  \pmb{y} = A\pmb{x} + \pmb{\mu} \sim N_d(\pmb{\mu}, A A^T), \quad \pmb{x} \sim N_d(0, 1)
 $$
 
-So in order to sample from the $d$-variate normal distribution $y = N_d(\mu, \Sigma)$, we can first sample from $N_d(0, 1)$ using the function `sample_standard_normal`, and get $\pmb{y}$ by using the linear transformation proposed above. The matrix $A$ can be found by using Cholesky decomposition on $\Sigma$. This has been implemented in `sample_normal_d` as defined below.
+So in order to sample from the $d$-variate normal distribution $y = N_d(\mu, \Sigma)$, we can first sample from $N_d(0, 1)$ using the function `sample_standard_normal`, and get $\pmb{y}$ by use of the linear transformation proposed above. The matrix $A$ can be found by using Cholesky decomposition on $\Sigma$. This has been implemented in `sample_normal_d` as defined below.
 
 ```{R}
-sample_normal_d = function(d, mu, sigma) {
-  x = sample_standard_normal(d)
-  y <- mu + t(chol(sigma))%*%x
-  return(y)
-}
+  # Function for sampling one time from the d-variate
+  # normal distribution:
+  sample_normal_d = function(d, mu, sigma) {
+    # Draw d samples from N(0, 1):
+    x = sample_standard_normal(d)
+    
+    # Apply the linear transformation:
+    y = mu + t(chol(sigma)) %*% x
+    
+    return(y)
+  }
 ```
 
 We then generate $n = 1\text{E+5}$ samples using the $\pmb{\mu}$ and $\Sigma$ as defined below. 
@@ -223,29 +278,32 @@ $$
   \mu = \begin{pmatrix} 1.5 \\ 3 \end{pmatrix} , \quad \Sigma = \begin{pmatrix} 5 & 7 \\ 7 & 10 \end{pmatrix}
 $$
 ```{R}
-
-d = 2
-n = 100000
-mu = c(1.5, 3)
-sigma = matrix(c(5,7,7,10),ncol=d,nrow=d)
-samples = matrix(NA, ncol=d, nrow=n)
-for (i in 1:n){
-  samples[i,] = sample_normal_d(d,mu,sigma) # Draw n samples
-}
-
-average = apply(samples, 2, mean)
-print("Mean vector:")
-print.data.frame(data.frame(average))
-covmat = cov(samples)
-print("Covariance matrix:")
-print.data.frame(data.frame(covmat))
+  # Parameters:
+  d = 2
+  n = 100000
+  mu = c(1.5, 3)
+  sigma = matrix(c(5,7,7,10),ncol=d,nrow=d)
+  
+  # We have to sample in a for-loop since our sampler
+  # cannot do this in a vectorized fashion:
+  samples = matrix(NA, ncol=d, nrow=n)
+  for (i in 1:n){
+    samples[i,] = sample_normal_d(d,mu,sigma) # Draw n samples
+  }
+  
+  average = apply(samples, 2, mean)
+  print("Mean vector:")
+  print.data.frame(data.frame(average))
+  covmat = cov(samples)
+  print("Covariance matrix:")
+  print.data.frame(data.frame(covmat))
 ```
 
 # Problem B
 
 ## Part 1
 
-We want to find a way to sample from a gamma distribution $f(x)$ with parameters $\alpha \in (0, 1)$ and $\beta = 1$ as defined below. In order to do this, we can use rejection sampling with $g(x)$ as the proposal distribution. This is possible because the support of $g(x)$ includes the support of $f(x)$; in other words, $g(x) > 0$ whenever $f(x) > 0$. As a consequence of this, there exists a $c > 1$ such that $\left\{\frac{f(x)}{g(x)} \leq c, x : f(x) > 0\right\}$. 
+We want to find a way to sample from a gamma distribution $f(x)$ with parameters $\alpha \in (0, 1)$ and $\beta = 1$ as defined below. In order to do this, we can use rejection sampling with $g(x)$ as defined in Problem A, Part 2 as the proposal distribution. This is possible because the support of $g(x)$ includes the support of $f(x)$; in other words, $g(x) > 0$ whenever $f(x) > 0$. As a consequence of this, there exists a $c > 1$ such that $\left\{\frac{f(x)}{g(x)} \leq c, x : f(x) > 0\right\}$. 
 
 $$
   f(x) = \begin{cases}
@@ -254,13 +312,13 @@ $$
   \end{cases}
 $$
 
-Rejection sampling is done in two steps. First, we generate $x \sim g(x)$. We then compute $\alpha = \frac{1}{c} \cdot  \frac{f(x)}{g(x)}$, and generate $u \sim U[0,1]$. If $u \leq \alpha$, then $x$ is a sample from $f(x)$, and if not we have to redo the whole process until it is. The overall acceptance probability $P_a$ is found to be the following:
+Rejection sampling is done in two steps. First, we generate $x \sim g(x)$. We already have a sampler `sample_g` for this, which we will reuse here. We then compute $\alpha = \frac{1}{c} \cdot  \frac{f(x)}{g(x)}$, and generate $u \sim U[0,1]$. If $u \leq \alpha$, then $x$ is a sample from $f(x)$. If not,we have to redo the whole process until it is. The overall acceptance probability $P_a$ is found to be the following:
 
 $$
   P_a = P\left(U \leq \frac{1}{c} \cdot  \frac{f(x)}{g(x)}\right) = \int_{-\infty}^\infty \frac{f(x)}{c \cdot g(x)} g(x) dx = c^{-1}\int_{-\infty}^\infty f(x) dx= c^{-1}
 $$
 
-So in order to maximize the acceptance probability, we have to minimize $c$. Since we have to find a $c$ which is greater than $\frac{f(x)}{g(x)} \forall x \in \mathbb{R}$, the lowest possible $c$ would be the highest value the ratio $\frac{f(x)}{g(x)}$ can attain, i.e.
+So in order to maximize the acceptance probability, we have to minimize $c$. Since we have to find a $c > \frac{f(x)}{g(x)} \quad \forall \quad  x : f(x) > 0$, the lowest possible $c$ would be the highest value the ratio $\frac{f(x)}{g(x)}$ can attain, i.e.
 
 \begin{align}
   c &= \sup_x \frac{f(x)}{g(x)} \\
@@ -272,25 +330,28 @@ So in order to maximize the acceptance probability, we have to minimize $c$. Sin
 \end{align}
 
 
-This means that the lowest acceptance probability we can achieve is $P_\text{a,lowest} = \frac{\Gamma(\alpha)}{\alpha^{-1} + e^{-1}}$. A sampling algorithm which uses this $c$ has been implemented below in `R`. Here we exploit the fact that it on average takes $c$ iterations to generate 1 sample from the target distribution $f(x)$. Then the actual number of samples we need in order to sample $n$ times from $f(x)$ should be pretty close to $n \cdot c$ when $n$ is large. This speeds up the execution significantly, as execution time is of concern only for large $n$. After sampling once, we resample with $c$ times the number of samples we are missing until we have enough samples. This should then converge pretty fast.
+This means that the lowest acceptance probability we can achieve is $P_\text{a,lowest} = \frac{\Gamma(\alpha)}{\alpha^{-1} + e^{-1}}$. A sampling algorithm which uses this $c$ has been implemented below. Here we exploit the fact that it on average takes $c$ iterations to generate 1 sample from the target distribution $f(x)$. Then the actual number of samples we need in order to sample $n$ times from $f(x)$ should be pretty close to $n \cdot c$ when $n$ is large. This speeds up the execution significantly, since the algorithm does not require many iterations. After sampling once, we resample with $c$ times the number of samples we are missing until we have enough samples. This should then converge pretty fast.
 
 ```{R}
+  # PDF of gamma for a given alpha and beta=1:
   density_f = function(x, alpha) {
     return(dgamma(x, alpha, rate=1))
   }
   
+  # Function for drawing n samples from Gamma(alpha, 1)
+  # When 0 < alpha < 1:
   sample_f_small = function(n, alpha) {
     c = (1/alpha + exp(-1)) / gamma(alpha)
     samples = vector()
     repeat {
       num_missing_samples = n - length(samples)
-      
       x = sample_g(as.integer(num_missing_samples*c), alpha)
       
       acceptance_probs = density_f(x, alpha) / (c * density_g(x, alpha))
       u = runif(as.integer(num_missing_samples*c))
       samples = c(samples, x[u <= acceptance_probs])
       if(length(samples) >= n) {
+        # Break out of loop if we have enough samples:
         break
       }
     }
@@ -298,17 +359,17 @@ This means that the lowest acceptance probability we can achieve is $P_\text{a,l
     return(samples[0:n])
   }
 ```
-We then want to evaluate the correctness of our sample in terms of expectation value and variance. Below we have calculated the sample mean and variance, and compared them with their respective theoretical values. We see that they match well.
+We then want to evaluate the correctness of our sampler in terms of expectation value and variance. Below we have calculated the sample mean and variance, and compared them with their respective theoretical values. We see that they match well.
 ```{R}
+  # Parameters:
   n = 100000
-  alpha = 0.6
-  x = sample_f_small(n, alpha)
-  cat("Theoretical mean:", alpha, "\n")
-  cat("Sample mean:", mean(x), "\n")
-  cat("----", "\n")
+  alpha = 0.6 # 0 < alpha < 1
   
-  cat("Theoretical variance:", alpha, "\n")
-  cat("Sample variance:", var(x), "\n")
+  # Draw n samples from Gamma(alpha, 1):
+  x = sample_f_small(n, alpha)
+  
+  cat("Theoretical mean:", alpha, "Sample mean:", mean(x), "\n")
+  cat("Theoretical variance:", alpha, "Sample variance:", var(x), "\n")
 ```
 
 Furthermore, it is important to check that a histogram of the samples overlaps well with the analytic expression for $f(x)$. Such a plot has been created below. We see a good overlap, which further strengthens our belief that the sampler works as intended.
@@ -319,18 +380,18 @@ Furthermore, it is important to check that a histogram of the samples overlaps w
   x = sample_f_small(n, alpha)
   df = data.frame(x)
   ggplot(df, aes(x = x)) +
-    geom_histogram(aes(y = ..density.., color = "Sampled"), binwidth=0.01) +
-    stat_function(fun=dgamma,geom = "line",size=0.5,args=(alpha=alpha),aes(color="Analytical")) +
+    geom_histogram(aes(y = ..density.., color = "Samples"), binwidth=0.01) +
+    stat_function(fun=dgamma,geom = "line",size=0.8,args=(alpha=alpha),aes(color="PDF")) +
     xlim(0, 4) + ylim(0, 3) + 
-    ggtitle("Gamma distribution using rejection sampling") + labs(x='x', y='density')
+    ggtitle("Gamma distribution using rejection sampling - Samples vs PDF") + labs(x='x', y='density')
 ```
 
-## Problem 2: Ratio of uniforms method
+## Part 2: Ratio of uniforms method
 
-We now want to consider sampling from a gamma-distribution $f(x)$ with $\alpha > 1$ and $\beta = 1$. With an unbounded $\alpha$, we cannot find a $c \geq \frac{f(x)}{g(x)} \forall x \in \mathbb{R}$ anymore. Therefore, sampling using ratio-of-uniforms seems more suitable. Define the area $C_f$
+We now want to consider sampling from a Gamma distribution $f(x)$ with $\alpha > 1$ and $\beta = 1$. With an unbounded $\alpha$, we cannot find a $c \geq \frac{f(x)}{g(x)} \quad \forall \quad  x : f(x) > 0$ anymore. Therefore, sampling using ratio-of-uniforms seems more suitable. Define the area
 
 $$
-  C_f = \left\{ (x_1, x_2) : 0 \leq x_1 \leq \sqrt{f^*\left(\frac{x_1}{x_2}\right)}  \right\} \quad \text{where}\quad f^*(x) = \begin{cases}
+  C_f = \left\{ (x_1, x_2) : 0 \leq x_1 \leq \sqrt{f^*\left(\frac{x_1}{x_2}\right)}  \right\}, \quad \text{where}\quad f^*(x) = \begin{cases}
     x^{\alpha-1}e^{-x}, \quad &0 < x, \\
     0, &\text{otherwise.}
   \end{cases}
@@ -342,7 +403,7 @@ $$
   a = \sqrt{\sup_x f^*(x)}, \quad b_+ = \sqrt{\sup_{x \geq 0} (x^2f^*(x))} \quad\text{and}\quad b_- = \sqrt{\sup_{x \leq 0} (x^2f^*(x))}
 $$
 
-so that $C_f \subset [0, a] \times [b_-, b_+]$. The values of $a$, $b_-$ and $b_+$ are found by means of differentiation:
+so that $C_f \subset [0, a] \times [b_-, b_+] \in \mathbb{R}^2$. The values of $a$, $b_-$ and $b_+$ are found by means of differentiation:
 
 
 \begin{align}
@@ -361,13 +422,13 @@ so that $C_f \subset [0, a] \times [b_-, b_+]$. The values of $a$, $b_-$ and $b_
 $$
   b_- = 0
 $$
-Then $y = x_1 / x_2 \sim \Gamma(\alpha, \beta=1)$ if $x_1$ and $x_2$ are sampled uniformly inside $C_f$. This can be accomplished by letting $x_1 \sim U[0, a]$ and $x_2 \sim U[b_-, b_+]$, and selecting only $(x_1, x_2) \in C_f$. Note that $\alpha$ can grow arbitrarily large, which makes the $x^\alpha$ term in $f(x)$ grow even larger. This would result in numerical overflow in R, and is a problem. To solve this, we can sample in log-scale. Then $\ln x_1$ and $\ln x_2$ are sampled as follows:
+Then $y = x_1 / x_2 \sim \text{Gamma}(\alpha, \beta=1)$ if $x_1$ and $x_2$ are sampled uniformly inside $C_f$. This can be accomplished by letting $x_1 \sim U[0, a]$ and $x_2 \sim U[b_-, b_+]$, and selecting only $(x_1, x_2) \in C_f$. Note that $\alpha$ can grow arbitrarily large, which makes the $x^\alpha$ term in $f(x)$ grow even larger. This would result in numerical overflow in practical implementations, and is a problem. To solve this, we can sample in log-scale. Then $\ln x_1$ and $\ln x_2$ are sampled as follows:
 
 \begin{align}
   x_1 &= a \cdot U[0,1] \\ 
-  &\Rightarrow \ln x_1 = \ln a + \ln U[0,1] \\
+  \Rightarrow \ln x_1 &= \ln a + \ln U[0,1] \\
   x_2 &= b_- + (b_+ - b_-) \cdot U[0,1] \\
-  &\Rightarrow \ln x_2 = \ln b_+ + \ln U[0,1]
+  \Rightarrow \ln x_2 &= \ln b_+ + \ln U[0,1]
 \end{align}
 
 
@@ -375,10 +436,19 @@ And the condition for checking $(x_1, x_2) \in C_f$ is equivalent to
 
 \begin{align}
   &\ln x_1 \leq \ln \sqrt{f^*\left(\frac{x_2}{x_1}  \right)} \\
-  &\Rightarrow 2 \ln x_1 \leq (\alpha -1) (\ln x_2 - \ln x_1) - \exp(\ln x_2 - \ln x_1)
+  \Rightarrow 2 \ln x_1 &\leq (\alpha -1) (\ln x_2 - \ln x_1) - \exp(\ln x_2 - \ln x_1)
+\end{align}
+
+Furthermore,
+
+\begin{align}
+  \ln a &= \frac{\alpha - 1}{2} \cdot (\ln(\alpha - 1) - 1) \\
+  \ln b_+ &= \frac{\alpha + 1}{2} \cdot (\ln(\alpha + 1) - 1)
 \end{align}
 
 ```{R}
+# Function for drawing n samples from
+# Gamma(alpha, 1) when alpha > 1:
 sample_f_large = function(n, alpha) {
   loga = (alpha - 1)/2 * (log(alpha - 1) - 1)
   logbp = (alpha + 1)/2 * (log(alpha + 1) - 1)
@@ -406,11 +476,15 @@ sample_f_large = function(n, alpha) {
 We then evaluate the correctness in terms of comparing sampled and theoretical mean and variance:
 
 ```{R}
-n = 10000
-alpha = 50
-samples = sample_f_large(n, alpha)$samples
-cat("Theoretical mean:", alpha, "Sample mean:", mean(samples), "\n")
-cat("Theoretical variance:", alpha, "Sample variance:", var(samples), "\n")
+  # Parameters:
+  n = 10000
+  alpha = 50 # alpha > 1
+  
+  # Draw n samples from Gamma(alpha, 1) when alpha > 1
+  samples = sample_f_large(n, alpha)$samples
+  
+  cat("Theoretical mean:", alpha, "Sample mean:", mean(samples), "\n")
+  cat("Theoretical variance:", alpha, "Sample variance:", var(samples), "\n")
 ```
 
 Another important aspect of the algorithm is how fast it executes. We let $n = 1000$, and check how many iterations are required for sampling when $\alpha \in (1, 2000] \subset \mathbb{Z}$:
@@ -429,7 +503,7 @@ ggplot(df, aes(x = alpha, y = num_iterations)) + geom_line()
 From the plot it seems that the number of iterations $n_i$ required for generating $n$ samples has a $\log\alpha$ dependency, i.e. $n_i \propto \log\alpha$ for a fixed $n$. This is not too bad, since it implies that by increasing $\alpha$ a lot, $n_i$ will increase only slightly.
 
 ## Part 3 - Gamma sampler with arbitrary parameters
-Recall that we created a Gamma sampler for $\alpha \in (0, 1)$ in Part 1 and $\alpha \in (1, \infty)$ in Part 2 for $\beta = 1$. We now want to create a Gamma sampler for an arbitrary $\alpha$ and $\beta$. First, two observations should be made; $\beta$ is simply an inverse scale parameter. In other words, sampling from $\text{Gamma}(\alpha, \beta)$ is equivalent to sampling from $\text{Gamma}(\alpha, 1)$ and then divide by $\beta$. Lastly, $\text{Gamma}(1,1)$ is simply the unscaled exponential distribution. And we already have a sampler for that distribution. So our Gamma sampler should choose one of the three mentioned samplers based on $\alpha$, and then divide the samples by $\beta$. The R code for our Gamma sampler is provided below:
+Recall that we created a Gamma sampler for $\alpha \in (0, 1)$ in Part 1 and $\alpha \in (1, \infty)$ in Part 2 for $\beta = 1$. We now want to create a Gamma sampler for an arbitrary $\alpha \in \mathbb{R}_+$ and $\beta$. First, two observations should be made; $\beta$ is simply an inverse scale parameter. In other words, sampling from $\text{Gamma}(\alpha, \beta)$ is equivalent to sampling from $\text{Gamma}(\alpha, 1)$ and then divide by $\beta$. Second, $\text{Gamma}(1,1)$ is the unscaled exponential distribution. And we already have a sampler for that distribution(`sample_exponential`). So our Gamma sampler should choose one of the three mentioned samplers based on $\alpha$, and then divide the samples by $\beta$. The R code for our Gamma sampler is provided below:
 
 ```{R}
 sample_gamma = function(n, alpha, beta) {
@@ -448,41 +522,46 @@ sample_gamma = function(n, alpha, beta) {
 
 Now we can sample from e.g. $\text{Gamma}(10, 2)$ and check that it works as expected:
 ```{R}
-n = 100000
-alpha = 100
-beta = 3
-x = sample_gamma(n, alpha, beta)
-df = data.frame(x)
-ggplot(df, aes(x = x)) +
-    geom_histogram(aes(y = ..density.., color = "Sampled"), binwidth=0.01) +
-    stat_function(fun=dgamma,geom = "line",size=1,aes(color='Analytical'),args = list(shape=alpha, rate=beta)) +
-    # ylim(0,1) +
-    ggtitle("Gamma distribution with alpha=1000, beta=3") + labs(x='x', y='density')
+  # Parameters:
+  n = 100000
+  alpha = 10
+  beta = 2
+  
+  # Draw n samples from Gamma(alpha, beta)
+  x = sample_gamma(n, alpha, beta)
+  
+  # Plot the samples in a histogram together with the pdf
+  df = data.frame(x)
+  ggplot(df, aes(x = x)) +
+      geom_histogram(aes(y = ..density.., color = "Samples"), binwidth=0.01) +
+      stat_function(fun=dgamma,geom = "line",size=1,aes(color='PDF'),args = list(shape=alpha, rate=beta)) +
+      ggtitle("Gamma distribution with alpha=10, beta=2") + labs(x='x', y='density')
 ```
 ## Part 4
 
-Now we want to create a sampler for the $\text{beta}(\alpha, \beta)$ distribution. Define the independent stochastic variables $X \sim \text{Gamma}(\alpha, 1)$, $Y \sim \text{Gamma}(\beta, 1)$. Their joint distribution is
+Now we want to create a sampler for the $\text{beta}(\alpha, \beta)$ distribution. Define the independent stochastic variables $x \sim \text{Gamma}(\alpha, 1)$, $y \sim \text{Gamma}(\beta, 1)$. Their joint distribution is
 
 $$
-  f_{X,Y}(x, y) = f_X(x) \cdot f_Y(y) = \frac{1}{\Gamma(\alpha)\Gamma(\beta)} x^{\alpha-1}y^{\beta-1}\exp\left(x + y\right) \quad \forall \quad  (x, y) \in \mathbb{R}^2
+  f_{x,y}(x, y) = f_x(x) \cdot f_y(y) = \frac{1}{\Gamma(\alpha)\Gamma(\beta)} x^{\alpha-1}y^{\beta-1}\exp\left(x + y\right) \quad \forall \quad  (x, y) \in \mathbb{R}^2
 $$
 
 Define the transformations
 
-$$
-  z = g_1(x, y) = \frac{x}{x+y}\\
-  z' =g_2(x, y) =  x + y
-$$
+\begin{align}
+  z &= g_1(x, y) = \frac{x}{x+y} \\
+  z' &= g_2(x, y) =  x + y
+\end{align}
 The inverse transformations then becomes
 
-$$
-  x = g_1^{-1}(z, z') = z \cdot z' \\
-  y = g_2^{-1}(z, z') = z' - z \cdot z' 
-$$
-The Jacobian of the transformation is found as
+\begin{align}
+  x &= g_1^{-1}(z, z') = z \cdot z' \\
+  y &= g_2^{-1}(z, z') = z' - z \cdot z' 
+\end{align}
+
+The Jacobi determinant of the transformation is found as
 
 $$
-  J_{x,y}(z, z') = \det \begin{pmatrix} 
+  \det J_{x,y}(z, z') = \det \begin{pmatrix} 
     \frac{\partial x}{\partial z} & \frac{\partial x}{\partial z'} \\
     \frac{\partial y}{\partial z} & \frac{\partial y}{\partial z'} 
   \end{pmatrix} = \det \begin{pmatrix}
@@ -493,19 +572,20 @@ $$
 From bivariate transformations we know that
 
 \begin{align}
-  f_{Z, Z'}(z, z') &= f_{X, Y}(g_1^{-1}(z, z'), g_2^{-1}(z, z')) \cdot J_{x,y}(z, z') \\
-  &= f_{X, Y}(z \cdot z', z'-z \cdot z') \cdot J_{x,y}(z, z') \\
+  f_{z, z'}(z, z') &= f_{x, y}(g_1^{-1}(z, z'), g_2^{-1}(z, z')) \cdot \det J_{x,y}(z, z') \\
+  &= f_{x, y}(z \cdot z', z'-z \cdot z') \cdot \det J_{x,y}(z, z') \\
   &= |z'| \frac{1}{\Gamma(\alpha)\Gamma(\beta)}(z\cdot z')^{\alpha-1}(z' - z \cdot z')^{\beta-1} e^{-z'}
 \end{align}
 
 The total probability theorem then yields 
+
 \begin{align}
   f_Z(z) &= \int_{-\infty}^\infty f_{Z, Z'}(z, z') dz' \\
   &= \frac{\Gamma(\alpha + \beta)}{\Gamma(\alpha)\Gamma(\beta)} z^{\alpha - 1} (1 - z)^{\beta - 1} , \quad z \in (0, 1) \subset \mathbb{R} \\
-  &\Rightarrow z \sim \text{beta}(\alpha, \beta) \quad \square
+  &\Rightarrow z \sim \text{beta}(\alpha, \beta) 
 \end{align}
 
-We can thus create a sampler by using this transformation:
+We can thus create a sampler by first sampling $x \sim \text{Gamma}(\alpha, 1)$, $y \sim \text{Gamma}(\beta, 1)$, and then applying the transformation $z = \frac{x}{x+y} \sim \text{beta}(\alpha, \beta)$:
 
 ```{R}
   sample_beta = function(n, alpha, beta) {
@@ -518,15 +598,29 @@ We can thus create a sampler by using this transformation:
 The sampler should first be evaluated in terms of mean and variance. This has been done in the code block below:
 
 ```{R}
-  n = 10000
+  # Parameters:
+  n = 100000
   alpha = 5
   beta = 10
+  
+  # Draw n samples from beta(alpha, beta):
   x = sample_beta(n, alpha, beta)
+  
   cat("Theoretical mean:", alpha/(alpha+beta), "Sample mean:", mean(x), "\n")
   cat("Theoretical variance", alpha*beta/((alpha+beta)^2*(alpha + beta + 1)), "Sample variance:", var(x), "\n")
 ```
 
+We see that the sample mean and variance matches well with the theoretical values. Furthermore we want to check that the samples have the correct distribution:
 
+```{R}
+  df = data.frame(x=x)
+  ggplot(df, aes(x = x)) +
+      geom_histogram(aes(y = ..density.., color = "Samples"), binwidth=0.01) +
+      stat_function(fun=dbeta,geom = "line",size=1,aes(color='PDF'),args = list(shape1=alpha, shape2=beta)) +
+      ggtitle("Beta distribution beta(alpha=5, beta=10) - Samples vs PDF") + labs(x='x', y='density')
+```
+
+So the distribution of the samples matches well with the pdf. We conclude that our beta sampler works as intended.
 
 # Problem C - Monte Carlo integration and variance reduction
 
