@@ -1,0 +1,127 @@
+
+--- 
+title: 'TMA4300 Computer Intensive Statistical Methods Exercise 2, Spring 2021'
+output:
+  html_document:
+    toc: yes
+    toc_depth: 2
+    toc_float: yes
+  pdf_document:
+    toc: no
+    toc_depth: '2'
+date: "`r format(Sys.time(), '%d.%m.%Y')`"
+subtitle: 'Group members: Eide, Jonathan and Lima-Eriksen, Leik'
+---
+
+\newcommand{\vect}[1]{\ensuremath{\boldsymbol{\mathbf{#1} }}}
+\newcommand{\matr}[1]{\ensuremath{\boldsymbol{\mathbf{#1} }}}
+\newcommand{\Var}{\textrm{Var}}
+\newcommand{\E}{\textrm{E}}
+\newcommand{\Cov}{\textrm{Cov}}
+\newcommand{\Corr}{\textrm{Corr}}
+
+# Problem A: Analysis of coal-mining disasters timeseries
+
+In this problem we will take a closer look at a famous data set of time intervals between successive coal-mining disasters
+in the UK involving ten or more men killed (Jarrett, 1979). The data is for the period March 15th 1851 to
+March 22nd 1962. It contains a list of floating-point numbers where the integer part specifies which year the accident occurred, and the decimal part specifies at which part of the year it occurred.
+
+```{R}
+# Load the coal-mining data set in the variable `coal`
+# The first and last records in the variable is the
+# start and end dates respectively
+library(boot)
+
+# List all other used library here in the preamble
+library(ggplot2)
+library(dplyr)
+```
+
+
+In order to get an impression of how the data we will be analyzing looks like, we start off by making a histogram with year along the $x$-axis and cumulative
+number of disasters along the y-axis. The plot has been provided in the figure below:
+
+```{R}
+coal_by_year <- data.frame(year=as.integer(coal$date))  %>% count(year)
+coal_by_year$cum_n <- cumsum(coal_by_year$n)
+ggplot(data=coal_by_year, aes(x=year, y=cum_n, group=1)) +
+  geom_line() +
+  geom_point() +
+  ggtitle("Cumulative number of accidents in coal-mines vs year")
+``` 
+
+Observe that between 1850 and 1890 it seems that the number of accidents per year seems to be quite constant, as the cumulative plot has a linear trend. Afterwards, we see that the trends flattens more out between 1900 and 1925. This should make sense, because advancements in the safety for the coalminers were likely to happen at some point, which would drag this rate down. Another explanation could be a decrease in demand for coal, which would result in fewer accidents since fewer people were required to work in the coal mines. It then increased between 1930 and 1947. This could either be because the ongoing wars required people to work under fewer safety constraints. Another reason could be that the wars increased the demand for coal, which meant that more people had to work in the mines. Both reasons would further explain why the rate fell after the wars.
+
+From the observations above it seems reasonable to assume that the coal-mining disasters to
+follow an inhomogeneous Poisson process with intensity function $\lambda(t)$ (number of events per year). We assume
+$\lambda(t)$ to be piecewise constant with $n$ breakpoints. Let $t_0$ and $t_{n+1}$ to denote the start and end times for the
+data set and let $t_k; k = 1, \dots, n$ denote the break points of the intensity function. Thus,
+
+$$
+  \lambda(t) = \begin{cases}
+    \lambda_{k-1} \quad &\forall \quad t \in [t_{k-1}, t_k), \quad k = 1, \dots, n \\
+    \lambda_k  \quad &\forall \quad t \in [t_n, t_{n+1}].
+  \end{cases}
+$$
+
+The parameters of this model is thereby $t_1, \dots, t_n$ and  $\lambda_0, \lambda_n$, where $t_0 < t_1 < \dots < t_n < t_{n+1}$. By
+subdividing the observation period into short intervals, and taking the limit when the length of these intervals go to zero, one can derive the likelihood function for the observed data as
+
+\begin{align*}
+  \pi(x|t_1, \dots, t_n, \lambda_0, \dots, \lambda_n) &= \exp\left( -\int_{t_0}^{t_{n+1}} \lambda(t) \text{d} t\right) \prod_{k=0}^n \lambda^{y_k} \\
+  &= \exp\left( -\sum_{k=0}^n \lambda_k (t_{k+1} - t_k) \right) \prod_{k=0}^n \lambda^{y_k}
+\end{align*}
+
+where $x$ is the observed data and $y_k$ is the number of observed disasters in the period $t_k$ to $t_{k+1}$. Assume
+$t_1, \dots, t_n$ to be apriori uniformly distributed on the allowed values, and $\lambda_0, \dots, \lambda_n$ to be apriori independent
+of $t_1, \dots, t_n$ and apriori independent of each other. Apriori we assume all $\lambda0, \dots , \lambda_n$ to be distributed from
+the same gamma distribution with shape parameter $\alpha = 2$ and scale parameter $\beta$, i.e.
+
+$$
+  \pi(\lambda_i | \beta) = \frac{1}{\beta^2} \lambda_i e^{-\frac{\lambda_i}{\beta}} \quad \forall \quad \lambda_i \geq 0
+$$
+
+Finally, for $\beta$ we use the improper prior
+
+$$
+  \pi(\beta) \propto \frac{\exp\left\{-\frac{1}{\beta}\right\}}{\beta} \quad \forall \quad \beta > 0.
+$$
+
+Now assume $n = 1$. Then our model parameters are $\theta = (t_1, \lambda_0, \lambda_1, \beta)$. The prior $\pi(\theta)$ can be found by using the fact that$t_1$, $\lambda_0$ and $\lambda_1$ are independent of each other:
+
+\begin{align*}
+  \pi(\theta) &= \pi(t_1) \cdot f(\lambda_0 | \beta) \cdot \pi(\lambda_1 | \beta) \cdot \pi(\beta) \\
+  &\propto \frac{1}{t_2 - t_0} \cdot \frac{1}{\beta^5} \lambda_0 \lambda_1 \exp\left\{-\frac{1 + \lambda_1 + \lambda_0}{\beta}\right\}
+\end{align*}
+
+Note that $t_0$ and $t_2$ are the start and end of the time series respectively, and so they are not parameters in our model. We are interested in finding the posterior distribution $f(\theta | x)$ up to a proportionality constant. This can be found by using Bayes law:
+
+\begin{align*}
+  \pi(\theta | x) &\propto \pi(x | \theta) \pi(\theta) \\
+  &=  \frac{ \lambda_0^{y_0+1} \lambda_1^{y_1+1}}{\beta^5} \exp\left\{ -\lambda_0(t_1 - t_0) - \lambda_1(t_2 - t_1) - \frac{1 + \lambda_0 + \lambda_1}{\beta} \right\}
+\end{align*}
+
+Let $\theta^j$ denote the $j$-th element of the vector $\theta$, and let $\theta^{-j} = [\theta^0 \dots \theta^{j-1} \theta^{j+1} \dots \theta^n]^T$  The full conditionals can then be written as
+
+$$
+  \pi(\theta^j | x, \theta^{-j}) = \frac{\pi(\theta | x)}{\pi (\theta^{-j} | x)} \propto  \pi(\theta | x)
+$$
+
+In other words, the full conditionals can be directly derived from the posterior density $\pi(\theta | x)$ by omitting all multiplicative factors which do not depend on $\theta^j$:
+
+\begin{align*}
+  \pi(t_1 | x, \lambda_0, \lambda_1, \beta) &\propto \lambda_0^{y_0} \lambda_1^{y_1} \exp\left\{ t_1(\lambda_1 - \lambda_0) \right\}, \quad &&t_1 \in [t_0, t_1] \\
+
+  \pi(\lambda_0 | x, t_1, \lambda_1, \beta) &\propto \lambda_0^{y_0+1} \exp\left\{-\lambda_0(t_1 - t_0 + \beta^{-1})\right\} , \quad &&\lambda_0 \geq 0\\
+
+  \pi(\lambda_1 | x, t_1, \lambda_0, \beta) &\propto \lambda^{y_0 + 1} \exp\left\{-\lambda_1(t_2  - t_1 + \beta^{-1})\right\}, \quad &&\lambda_1 \geq 0 \\
+
+  \pi(\beta | x, t_1, \lambda_0, \lambda_1, \beta) &\propto \frac{1}{\beta^5} \exp\left\{ \frac{1 + \lambda_0 + \lambda_1}{\beta} \right\} \\
+\end{align*}
+
+Observe that the full conditionals for $\lambda_0$ and $\lambda_1$ come from the Gamma distribution:
+
+\begin{align*}
+  [\lambda_0 | x, t_1, \lambda_1, \beta] &\sim \text{Gamma}(y_0 + 2, (t_1 - t_0 + \beta^{-1})^{-1}) \\
+  [\lambda_1 | x, t_1, \lambda_0, \beta] &\sim \text{Gamma}(y_1 + 2, (t_2 - t_1 + \beta^{-1})^{-1})
+\end{align*}
