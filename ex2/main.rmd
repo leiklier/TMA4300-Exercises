@@ -13,8 +13,10 @@ date: "`r format(Sys.time(), '%d.%m.%Y')`"
 subtitle: 'Group members: Eide, Jonathan and Lima-Eriksen, Leik'
 ---
 
-\newcommand{\vect}[1]{\ensuremath{\boldsymbol{\mathbf{#1} }}}
-\newcommand{\matr}[1]{\ensuremath{\boldsymbol{\mathbf{#1} }}}
+\usepackage{amsmath}
+
+\newcommand{\vect}[1]{\boldsymbol{\mathbf{#1} }}
+\newcommand{\matr}[1]{\boldsymbol{\mathbf{#1} }}
 \newcommand{\Var}{\textrm{Var}}
 \newcommand{\E}{\textrm{E}}
 \newcommand{\Cov}{\textrm{Cov}}
@@ -26,7 +28,7 @@ In this problem we will take a closer look at a famous data set of time interval
 in the UK involving ten or more men killed (Jarrett, 1979). The data is for the period March 15th 1851 to
 March 22nd 1962. It contains a list of floating-point numbers where the integer part specifies which year the accident occurred, and the decimal part specifies at which part of the year it occurred.
 
-```{R}
+```{R rpackages,eval=TRUE,echo=FALSE}
 # Load the coal-mining data set in the variable `coal`
 # The first and last records in the variable is the
 # start and end dates respectively
@@ -68,7 +70,7 @@ The parameters of this model is thereby $t_1, \dots, t_n$ and  $\lambda_0, \lamb
 subdividing the observation period into short intervals, and taking the limit when the length of these intervals go to zero, one can derive the likelihood function for the observed data as
 
 \begin{align*}
-  \pi(x|t_1, \dots, t_n, \lambda_0, \dots, \lambda_n) &= \exp\left( -\int_{t_0}^{t_{n+1}} \lambda(t) \text{d} t\right) \prod_{k=0}^n \lambda^{y_k} \\
+  \pi(\vect{x} |t_1, \dots, t_n, \lambda_0, \dots, \lambda_n) &= \exp\left( -\int_{t_0}^{t_{n+1}} \lambda(t) \text{d} t\right) \prod_{k=0}^n \lambda^{y_k} \\
   &= \exp\left( -\sum_{k=0}^n \lambda_k (t_{k+1} - t_k) \right) \prod_{k=0}^n \lambda^{y_k}
 \end{align*}
 
@@ -87,7 +89,7 @@ $$
   \pi(\beta) \propto \frac{\exp\left\{-\frac{1}{\beta}\right\}}{\beta} \quad \forall \quad \beta > 0.
 $$
 
-Now assume $n = 1$. Then our model parameters are $\theta = (t_1, \lambda_0, \lambda_1, \beta)$. The prior $\pi(\theta)$ can be found by using the fact that$t_1$, $\lambda_0$ and $\lambda_1$ are independent of each other:
+Now assume $n = 1$. Then our model parameters are $\theta = \begin{pmatrix}(t_1 & \lambda_0 &\lambda_1 & \beta )\end{pmatrix}^T$. The prior $\pi(\theta)$ can be found by using the fact that$t_1$, $\lambda_0$ and $\lambda_1$ are independent of each other:
 
 \begin{align*}
   \pi(\theta) &= \pi(t_1) \cdot f(\lambda_0 | \beta) \cdot \pi(\lambda_1 | \beta) \cdot \pi(\beta) \\
@@ -101,7 +103,7 @@ Note that $t_0$ and $t_2$ are the start and end of the time series respectively,
   &=  \frac{ \lambda_0^{y_0+1} \lambda_1^{y_1+1}}{\beta^5} \exp\left\{ -\lambda_0(t_1 - t_0) - \lambda_1(t_2 - t_1) - \frac{1 + \lambda_0 + \lambda_1}{\beta} \right\}
 \end{align*}
 
-Let $\theta^j$ denote the $j$-th element of the vector $\theta$, and let $\theta^{-j} = [\theta^0 \dots \theta^{j-1} \theta^{j+1} \dots \theta^n]^T$  The full conditionals can then be written as
+Let $\theta^j$ denote the $j$-th element of the vector $\theta$, and let $\theta^{-j} = \begin{pmatrix}\theta^0 & \dots & \theta^{j-1} & \theta^{j+1} & \dots & \theta^n\end{pmatrix}^T$  The full conditionals can then be written as
 
 $$
   \pi(\theta^j | x, \theta^{-j}) = \frac{\pi(\theta | x)}{\pi (\theta^{-j} | x)} \propto  \pi(\theta | x)
@@ -110,13 +112,13 @@ $$
 In other words, the full conditionals can be directly derived from the posterior density $\pi(\theta | x)$ by omitting all multiplicative factors which do not depend on $\theta^j$:
 
 \begin{align*}
-  \pi(t_1 | x, \lambda_0, \lambda_1, \beta) &\propto \lambda_0^{y_0} \lambda_1^{y_1} \exp\left\{ t_1(\lambda_1 - \lambda_0) \right\}, \quad &&t_1 \in [t_0, t_1] \\
+  \pi(t_1 | \vect{x}, \lambda_0, \lambda_1, \beta) &\propto \lambda_0^{y_0} \lambda_1^{y_1} \exp\left\{ t_1(\lambda_1 - \lambda_0) \right\} \quad &&\forall \quad t_1 \in [t_0, t_1] \\
 
-  \pi(\lambda_0 | x, t_1, \lambda_1, \beta) &\propto \lambda_0^{y_0+1} \exp\left\{-\lambda_0(t_1 - t_0 + \beta^{-1})\right\} , \quad &&\lambda_0 \geq 0\\
+  \pi(\lambda_0 | \vect{x}, t_1, \lambda_1, \beta) &\propto \lambda_0^{y_0+1} \exp\left\{-\lambda_0(t_1 - t_0 + \beta^{-1})\right\} \quad &&\forall \quad \lambda_0 \geq 0\\
 
-  \pi(\lambda_1 | x, t_1, \lambda_0, \beta) &\propto \lambda^{y_0 + 1} \exp\left\{-\lambda_1(t_2  - t_1 + \beta^{-1})\right\}, \quad &&\lambda_1 \geq 0 \\
+  \pi(\lambda_1 | \vect{x}, t_1, \lambda_0, \beta) &\propto \lambda_1^{y_1 + 1} \exp\left\{-\lambda_1(t_2  - t_1 + \beta^{-1})\right\}, \quad &&\forall \quad \lambda_1 \geq 0 \\
 
-  \pi(\beta | x, t_1, \lambda_0, \lambda_1, \beta) &\propto \frac{1}{\beta^5} \exp\left\{ \frac{1 + \lambda_0 + \lambda_1}{\beta} \right\} \\
+  \pi(\beta | \vect{x}, t_1, \lambda_0, \lambda_1) &\propto \frac{1}{\beta^5} \exp\left\{ -\frac{1 + \lambda_0 + \lambda_1}{\beta} \right\} \quad &&\forall \quad \beta > 0.\\
 \end{align*}
 
 Observe that the full conditionals for $\lambda_0$ and $\lambda_1$ come from the Gamma distribution:
@@ -125,3 +127,133 @@ Observe that the full conditionals for $\lambda_0$ and $\lambda_1$ come from the
   [\lambda_0 | x, t_1, \lambda_1, \beta] &\sim \text{Gamma}(y_0 + 2, (t_1 - t_0 + \beta^{-1})^{-1}) \\
   [\lambda_1 | x, t_1, \lambda_0, \beta] &\sim \text{Gamma}(y_1 + 2, (t_2 - t_1 + \beta^{-1})^{-1})
 \end{align*}
+
+Furthermore, the full conditional for $\beta$ comes from the Inverse Gamma distribution:
+
+$$
+  [\beta | x, t_1, \lambda_0, \lambda_1] \sim \text{InvGamma}(4, (1 + \lambda_0 + \lambda_1))
+$$
+where the first parameter is the shape parameter and the last is the scale parameter.
+
+We now want to define and implement a single site MCMC algorithm for $\pi(\vect{\theta} | \vect{x})$. Since three of the full conditionals are standard, we will be using their distributions as proposals. This is known as Gibbs steps, and give an acceptance probability of 1. For the last full conditional, $[t_1 | x, \lambda_0, \lambda_1, \beta]$, we will be sampling in Metropolis-Hastings (MH) steps. It can be shown that the MH algorithm converges to the target distribution regardless of the choice of proposal distribution. 
+
+Define $\vect{\theta_i}$ to be the realization of our parameter vector $\vect{\theta}$ at the $i$-th MCMC step. Also, let $Q(y^j | \theta^j_{i-1}, \vect{\theta}^{-j}_{i-1})$ be the proposal distribution for the parameter $\theta^j$ at the $i$-th step. Then the acceptance probability $\alpha$ for the proposal $y^j$ at the $i$-th iteration can be found to be
+
+$$
+  \alpha(y^j | \vect{x}, \vect{\theta}_{i-1}, ) = \min\left\{ 1, \frac{\pi(y^j | \vect{x}, \vect{\theta}^{-j}_{i-1})}{\pi(\theta^j_{i-1} | \vect{x}, \vect{\theta}^{-j}_{i-1})} \cdot \frac{Q(\theta^j_{i-1} | \vect{x}, y^j, \vect{\theta}^{-j}_{i-1})}{Q(y^j | \vect{x},   \vect{\theta}_{i-1})} \right\}
+$$
+
+Since the full conditional for $t_1$ seems to resemble a distribution close to the exponential, it may seem tempting to use an exponential independence proposal. However, the tail of the proposal is heavily dependent on the choice of parameters, and so by choosing them wrong we might end up with a quite bad convergence rate.
+
+A more robust proposal in this case is the random walk. Then $Q(y^{t_1} | \vect{x}, \vect{\theta}_{i-1}) = \theta^{t_1}_{i-1} + \pi(\epsilon)$, where $\epsilon$ comes from a 0-centered symmetrical distribution. In our case, we have chosen a uniform random walk, i.e.
+
+$$
+  [y^{t_1} | \vect{x}, \vect{\theta}_{i-1}] \sim \text{U}(\theta^{t_1}_{i-1} - d, \theta^{t_1}_{i-1} + d)
+$$
+where $d$ is a tuning parameter. 
+
+A weakness of the random walk proposal is that the Markov Chain may get stuck in a local maximum. There is no way of being certain that we are avoiding it, but by choosing $\alpha \in [0.2, 0.5]$ one at least reduces the risk for this to happens. This can be done by tuning $d$. 
+
+The proposal distribution for $t_1$ is symmetric around the current value, i.e.$Q(y^{t_1} | \vect{x}, \vect{\theta}_{i-1}) = Q(\theta^{t_1}_{i-1} | \vect{x}, y^{t_1}, \vect{\theta}^{-t_1}_{i-1})$. Hence,
+
+$$
+  Q(y^{t_1} | \vect{x}, \vect{\theta}_{i-1}) = \min\left\{1, \frac{\pi(y^{t_1} | \vect{x}, \vect{\theta}^{-t_1}_{i-1})}{\pi(\theta^{t_1}_{i-1} | \vect{x}, \vect{\theta}^{-t_1}_{i-1})} \right\}
+$$
+
+This single site Metropolis-within-Gibbs MCMC sampler has been implemented below:
+
+```{R}
+sample_lambda0_fc = function(t0, t1, beta, y0) {
+  return(rgamma(1, shape=(y0+1), scale=(1/(t1 - t0 + 1/beta))))
+}
+
+sample_lambda1_fc = function(t1, t2, beta, y1) {
+  return(rgamma(1, shape=(y1+1), scale=(1/(t2 - t1 + 1/beta))))
+}
+
+sample_beta_fc = function(lambda0, lambda1) {
+  return(1/rgamma(1, shape=4, scale=(1 + lambda0 + lambda1)))
+}
+
+pdf_t1_fc = function(t1, lambda0, lambda1, y0, y1) {
+  return(lambda0^y0 * lambda1^y1 * exp(t1*(lambda1 - lambda0)))
+}
+
+sample_t1_fc = function(t1_prev, lambda0, lambda1, t0, t2, x, d) {
+  y0_prev = sum(x <= t1_prev)
+  y1_prev = sum(x > t1_prev)
+  
+  t1_proposal = runif(1, t1_prev - d, t1_prev + d)
+  if (t1_proposal <= t0 || t1_proposal >= t2) {
+    # t1 is outside range, so reject it:
+    return(list(t1 = t1_prev, accepted=F))
+  }
+  
+  y0_proposal = sum(x <= t1_proposal)
+  y1_proposal = sum(x > t1_proposal)
+  
+  alpha = min(1, pdf_t1_fc(t1_proposal, lambda0, lambda1, y0_proposal, y1_proposal)/pdf_t1_fc(t1_prev, lambda0, lambda1, y0_prev, y1_prev))
+  
+  u = runif(1)
+  accept = u < alpha
+  
+  return(list(
+    t1=ifelse(accept, t1_proposal, t1_prev),
+    y0=ifelse(accept, y0_proposal, y0_prev),
+    y1=ifelse(accept, y1_proposal, y1_prev),
+    accepted=accept
+  ))
+}
+
+run_mcmc = function(n_iterations, x, d, t1_start, lambda0_start, lambda1_start, beta_start) {
+  t0 = x[1]
+  t2 = tail(x, n=1)
+  
+  result = data.frame(
+    t1=c(t1_start, rep(NA, n_iterations - 1)),
+    lambda0=c(lambda0_start, rep(rep(NA, n_iterations-1))),
+    lambda1=c(lambda1_start, rep(rep(NA, n_iterations-1))),
+    beta=c(beta_start, rep(rep(NA, n_iterations-1))),
+    t1_accepted=c(T, rep(NA, n_iterations-1))
+  )
+  
+  # Storing the current parameters in a list is practical,
+  # since we can change the sampling order without having to deal
+  # with indexes
+  curr_params = list(
+    t1=t1_start,
+    lambda0=lambda0_start,
+    lambda1=lambda1_start,
+    beta=beta_start
+  )
+  
+  for(i in 1:n_iterations) {
+    t1_result = sample_t1_fc(curr_params$t1, curr_params$lambda0, curr_params$lambda1, t0, t2, x, d)
+    curr_params$t1 = t1_result$t1
+    
+    curr_params$lambda0 = sample_lambda0_fc(t0, curr_params$t1, curr_params$beta, t1_result$y0)
+    curr_params$lambda1 = sample_lambda1_fc(curr_params$t1, t2, curr_params$beta, t1_result$y1)
+    curr_params$beta = sample_beta_fc(curr_params$lambda0, curr_params$lambda1)
+    
+    result[i] = c(curr_params, t1_accepted=t1_result$accepted)
+  }
+  
+  return(result)
+}
+```
+
+We want to run our algorithm to verify that it is working:
+
+```{R}
+n_iterations = 10000
+x = coal$date
+d = 5
+
+t1_start = 1920
+lambda0_start = 1
+lambda1_start = 0.5
+beta_start = sample_beta_fc(lambda0_start, lambda1_start)
+
+result = run_mcmc(n_iterations, x, d, t1_start, lambda0_start, lambda1_start, beta_start)
+```
+
