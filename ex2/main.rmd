@@ -15,6 +15,7 @@ subtitle: 'Group members: Eide, Jonathan and Lima-Eriksen, Leik'
 
 \usepackage{amsmath}
 
+\newcommand{\indep}{\perp \!\!\! \perp}
 \newcommand{\vect}[1]{\boldsymbol{\mathbf{#1} }}
 \newcommand{\matr}[1]{\boldsymbol{\mathbf{#1} }}
 \newcommand{\Var}{\textrm{Var}}
@@ -38,6 +39,7 @@ library(boot)
 library(ggplot2)
 library(dplyr)
 library(invgamma)
+library(ggpubr)
 ```
 
 
@@ -93,11 +95,11 @@ $$
 Now assume $n = 1$. Then our model parameters are $\vect{\theta} = \begin{pmatrix}t_1 & \lambda_0 &\lambda_1 & \beta \end{pmatrix}^T$. The prior $\pi(\vect{\theta})$ can be found by using the fact that $t_1$, $\lambda_0$ and $\lambda_1$ are independent of each other:
 
 \begin{align*}
-  \pi(\vect{\theta}) &= \pi(t_1) \cdot f(\lambda_0 | \beta) \cdot \pi(\lambda_1 | \beta) \cdot \pi(\beta) \\
+  \pi(\vect{\theta}) &= \pi(t_1) \times f(\lambda_0 | \beta) \times \pi(\lambda_1 | \beta) \times \pi(\beta) \\
   &\propto \frac{1}{t_2 - t_0} \cdot \frac{1}{\beta^5} \lambda_0 \lambda_1 \exp\left\{-\frac{1 + \lambda_1 + \lambda_0}{\beta}\right\}
 \end{align*}
 
-Note that $t_0$ and $t_2$ are the start and end of the time series respectively, and so they are not parameters in our model. We are interested in finding the posterior distribution $\pi(\theta | x)$ up to a proportionality constant. This can be found by using Bayes law:
+Note that $t_0$ and $t_2$ are the start and end of the time series respectively, and so they are not parameters in our model. We are interested in finding the posterior distribution $\pi(\vect{\theta} | \vect{x})$ up to a proportionality constant. This can be found by using Bayes law:
 
 \begin{align*}
   \pi(\vect{\theta} | x) &\propto \pi(\vect{x} | \vect{\theta}) \pi(\vect{\theta}) \\
@@ -107,7 +109,7 @@ Note that $t_0$ and $t_2$ are the start and end of the time series respectively,
 Let $\theta^j$ denote the $j$-th element of the vector $\theta$, and let $\vect{\theta}^{-j} = \begin{pmatrix}\theta^0 & \dots & \theta^{j-1} & \theta^{j+1} & \dots & \theta^n\end{pmatrix}^T$  The full conditionals can then be written as
 
 $$
-  \pi(\theta^j | \vect{x}, \vect{\theta}^{-j}) = \frac{\pi(\vect{\theta} | x)}{\pi(\vect{\theta}^{-j} | \vect{x})} \propto  \pi(\vect{\theta} | \vect{x})
+  \pi(\theta^j | \vect{x}, \vect{\theta}^{-j}) = \frac{\pi(\vect{\theta} | \vect{x})}{\pi(\vect{\theta}^{-j} | \vect{x})} \propto  \pi(\vect{\theta} | \vect{x})
 $$
 
 In other words, the full conditionals can be directly derived from the posterior density $\pi(\vect{\theta} | \vect{x})$ by omitting all multiplicative factors which do not depend on $\theta^j$:
@@ -125,30 +127,30 @@ In other words, the full conditionals can be directly derived from the posterior
 Observe that the full conditionals for $\lambda_0$ and $\lambda_1$ come from the Gamma distribution:
 
 \begin{align*}
-  [\lambda_0 | x, t_1, \lambda_1, \beta] &\sim \text{Gamma}(y_0 + 2, 1/(t_1 - t_0 + \beta^{-1})) \\
-  [\lambda_1 | x, t_1, \lambda_0, \beta] &\sim \text{Gamma}(y_1 + 2, 1/(t_2 - t_1 + \beta^{-1}))
+  [\lambda_0 | \vect{x}, t_1, \lambda_1, \beta] &\sim \text{Gamma}(y_0 + 2, 1/(t_1 - t_0 + \beta^{-1})) \\
+  [\lambda_1 | \vect{x}, t_1, \lambda_0, \beta] &\sim \text{Gamma}(y_1 + 2, 1/(t_2 - t_1 + \beta^{-1}))
 \end{align*}
 
 Furthermore, the full conditional for $\beta$ comes from the Inverse Gamma distribution:
 
 $$
-  [\beta | x, t_1, \lambda_0, \lambda_1] \sim \text{InvGamma}(4, 1/(1 + \lambda_0 + \lambda_1))
+  [\beta | \vect{x}, t_1, \lambda_0, \lambda_1] \sim \text{InvGamma}(4, 1/(1 + \lambda_0 + \lambda_1))
 $$
 
-We want to define and implement a single site MCMC algorithm for $\pi(\vect{\theta} | \vect{x})$. Since three of the full conditionals are standard, we will be using their distributions as proposals. This is known as Gibbs steps, and gives acceptance probabilities of 1. For the last full conditional, $[t_1 | x, \lambda_0, \lambda_1, \beta]$, we will be sampling in Metropolis-Hastings (MH) steps. It can be shown that the MH algorithm converges to the target distribution regardless of the choice of proposal distribution. 
+We want to define and implement a single site MCMC algorithm for $\pi(\vect{\theta} | \vect{x})$. Since three of the full conditionals are standard, we will be using their distributions as proposals. This is known as Gibbs steps, and gives acceptance probabilities of 1. For the last full conditional, $[t_1 | \vect{x}, \lambda_0, \lambda_1, \beta]$, we will be sampling in Metropolis-Hastings (MH) steps. It can be shown that the MH algorithm converges to the target distribution regardless of the choice of proposal distribution. 
 
-Define $\vect{\theta_i}$ to be the realization of our parameter vector $\vect{\theta}$ at the $i$-th MCMC step. Also, let $Q(z^j | \theta^j_{i-1}, \vect{\theta}^{-j}_{i-1})$ be the proposal distribution for the parameter $\theta^j$ at the $i$-th step. Then the acceptance probability $\alpha$ for the proposal $z^j$ at the $i$-th iteration can be found to be
+Define $\vect{\theta}_i$ to be the realization of our parameter vector $\vect{\theta}$ at the $i$-th MCMC step. Also, let $Q(z^j | \theta^j_{i-1}, \vect{\theta}^{-j}_{i-1})$ be the proposal distribution for the parameter $\theta^j$ at the $i$-th step. Then the acceptance probability $\alpha$ for the proposal $\tilde{\theta}^j$ at the $i$-th iteration can be found to be
 
 $$
-  \alpha(z^j | \vect{x}, \vect{\theta}_{i-1}, ) = \min\left\{ 1, \frac{\pi(z^j | \vect{x}, \vect{\theta}^{-j}_{i-1})}{\pi(\theta^j_{i-1} | \vect{x}, \vect{\theta}^{-j}_{i-1})} \cdot \frac{Q(\theta^j_{i-1} | \vect{x}, z^j, \vect{\theta}^{-j}_{i-1})}{Q(z^j | \vect{x},   \vect{\theta}_{i-1})} \right\}
+  \alpha(\tilde{\theta}^j | \vect{x}, \vect{\theta}_{i-1}, ) = \min\left\{ 1, \frac{\pi(\tilde{\theta}^j | \vect{x}, \vect{\theta}^{-j}_{i-1})}{\pi(\theta^j_{i-1} | \vect{x}, \vect{\theta}^{-j}_{i-1})} \times \frac{Q(\theta^j_{i-1} | \vect{x}, \tilde{\theta}^j, \vect{\theta}^{-j}_{i-1})}{Q(z^j | \vect{x},   \vect{\theta}_{i-1})} \right\}
 $$
 
 Since the full conditional for $t_1$ seems to resemble a distribution close to the exponential, it may seem tempting to use an exponential independence proposal. However, the tail of the proposal is heavily dependent on the choice of parameters, and so by choosing them wrong we might end up with a quite bad convergence rate.
 
-A more robust proposal in this case is the random walk. Then $Q(z^{t_1} | \vect{x}, \vect{\theta}_{i-1}) = \theta^{t_1}_{i-1} + \pi(\epsilon)$, where $\epsilon$ comes from a 0-centered symmetrical distribution. In our case, we have chosen a Gaussian random walk, i.e.
+A more robust proposal in this case is the random walk. Then $Q(\tilde{t_1} | \vect{x}, \vect{\theta}_{i-1}) = \theta^{t_1}_{i-1} + \pi(\epsilon)$, where $\epsilon$ comes from a 0-centered symmetrical distribution. In our case, we have chosen a Gaussian random walk, i.e.
 
 $$
-  [z^{t_1} | \vect{x}, \vect{\theta}_{i-1}] \sim \phi(\theta^{t_1}_{i-1}, \sigma)
+  [\tilde{t_1} | \vect{x}, \vect{\theta}_{i-1}] \sim \phi(\theta^{t_1}_{i-1}, \sigma)
 $$
 where $\sigma$ is a tuning parameter. 
 
@@ -157,12 +159,12 @@ A weakness of the random walk proposal is that the Markov Chain may get stuck in
 The proposal distribution for $t_1$ is symmetric around the current value, i.e.$Q(z^{t_1} | \vect{x}, \vect{\theta}_{i-1}) = Q(\theta^{t_1}_{i-1} | \vect{x}, z^{t_1}, \vect{\theta}^{-t_1}_{i-1})$. Hence,
 
 \begin{align*}
-  \alpha(z^{t_1} | \vect{x}, \vect{\theta}_{i-1}) &= \min\left\{1, \frac{\pi(z^{t_1} | \vect{x}, \vect{\theta}^{-t_1}_{i-1})}{\pi(\theta^{t_1}_{i-1} | \vect{x}, \vect{\theta}^{-t_1}_{i-1})} \right\} \\
-  &= \lambda_0^{z^{y_0} - y_0} \lambda_1^{z^{y_1} - y_1} \exp\left\{(z^{t_1} - \theta^{t_1}) (\lambda_1 - \lambda_0)\right\}
+  \alpha(\tilde{t_1} | \vect{x}, \vect{\theta}_{i-1}) &= \min\left\{1, \frac{\pi(\tilde{t_1} | \vect{x}, \vect{\theta}^{-t_1}_{i-1})}{\pi(\theta^{t_1}_{i-1} | \vect{x}, \vect{\theta}^{-t_1}_{i-1})} \right\} \\
+  &= \lambda_0^{\tilde{y_0} - y_0} \lambda_1^{\tilde{y_1} - y_1} \exp\left\{(\tilde{t_1} - \theta^{t_1}_{i-1}) (\lambda_1 - \lambda_0)\right\}
 \end{align*}
 
 
-Here, $z^{y_0}$ and $z^{y_1}$ are the values for $y_0$ and $y_1$ with the proposed value for $t_1$, $z^{t_1}$ respectively.
+Here, $\tilde{y_0}$ and $\tilde{y_1}$ are the values for $y_0$ and $y_1$ with the proposed value $\tilde{t_1}$ respectively.
 
 This single site Metropolis-within-Gibbs MCMC sampler has been implemented below:
 
@@ -210,7 +212,7 @@ sample_t1_fc = function(t1_prev, lambda0, lambda1, t0, t2, x, sigma) {
   ))
 }
 
-run_mcmc = function(n_iterations, x, sigma, t1_start, lambda0_start, lambda1_start, beta_start) {
+run_mcmc_single = function(n_iterations, x, sigma, t1_start, lambda0_start, lambda1_start, beta_start) {
   t0 = x[1]
   t2 = tail(x, n=1)
   
@@ -243,32 +245,79 @@ run_mcmc = function(n_iterations, x, sigma, t1_start, lambda0_start, lambda1_sta
     result[i,] = c(curr_params, t1_accepted=t1_result$accepted)
   }
   
+  result$iter = as.numeric(row.names(result))
   return(result)
 }
 ```
 
-We want to run our algorithm to verify that it is working:
+We start off with verifying that our Markov chain converges for arbitrary initial values of $t_1$. 
 
 ```{R}
 n_iterations = 10000
 x = coal$date
-sigma = 20
 
-t1_start = 1940
+# Tuning param
+sigma = 10
+
+# Params:
 lambda0_start = 80
 lambda1_start = 0.5
 beta_start = sample_beta_fc(lambda0_start, lambda1_start)
+t1_start = 1940
 
-result = run_mcmc(n_iterations, x, sigma, t1_start, lambda0_start, lambda1_start, beta_start)
-result$i = as.numeric(row.names(result))
+# Calculate
+result = run_mcmc_single(n_iterations, x, sigma, t1_start, lambda0_start, lambda1_start, beta_start)
 sprintf("Acceptance rate for t_1: %f", length(result$t1_accepted[result$t1_accepted == T]) / nrow(result) )
 ```
 
+
 ```{R}
-ggplot(data=result, aes(x=i,y=t1)) +
+ggplot(data=result, aes(x=iter,y=t1)) +
   geom_line() +
   ggtitle("Trace plot of t1 samples")
 
 hist(result$t1)
 ```
 
+We now want to implement MCMC using the following block proposals, where we will be alternating between the two proposals for each iteration:
+
+\begin{itemize}
+  \item $(t_1, \lambda_0, \lambda_1)$ keeping $\beta$ unchanged \\
+  \item $(\beta, \lambda_0, \lambda_1)$ keeping $t_1$ unchanged
+\end{itemize}
+  
+For the first block, we start by sampling our proposal $\tilde{t_1}$ using the Gaussian random walk as done in our single-site MCMC algorithm. Then $\lambda_0$ and $\lambda_1$ can be sampled from their joint conditional conditioned on the proposed $\tilde{t_1}$, $\pi(\lambda_0, \lambda_1 | \vect{x}, \tilde{t_1}, \beta)$. Recognize that the non-normalized joint conditional can be found by omitting all multiplicative factors from $\pi(\tilde{t_1}, \lambda_0, \lambda_1, \beta | \vect{x})$ that do not depend on $\lambda_0$ and $\lambda_1$. Hence,
+
+\begin{align*}
+  \pi(\lambda_0, \lambda_1 | \vect{x}, \tilde{t_1}, \beta) &\propto \lambda_0^{\tilde{y_0} + 1} \lambda_1^{\tilde{y_1} + 1} \exp\left\{-\lambda_0(t_1 - t_0) -\lambda_1(t_2 - \tilde{t_1}\right\} \\
+  &\propto \pi(\lambda_0 | \vect{x}, \tilde{t_1}, \lambda_1, \beta) \times \pi(\lambda_1 | \vect{x}, \tilde{t_1}, \lambda_0, \beta) \\
+  &\Rightarrow [\lambda_0 | \vect{x}, \tilde{t_1}, \lambda_1, \beta] \indep [\lambda_1 | \vect{x}, \tilde{t_1}, \lambda_0, \beta]
+\end{align*}
+
+We can sample the joint conditional by independently sampling $\lambda_0$ and $\lambda_1$ from their full conditionals using the proposed $\tilde{t_1}$, as they both are standard distributions. The acceptance probability is expressed as:
+
+$$
+  \alpha(\tilde{t_1}, \tilde{\lambda_0}, \tilde{\lambda_1} | \vect{x}, \vect{\theta}_{i-1}) = \min \left( 1, \frac{\pi(\tilde{t_1}, \tilde{\lambda_0}, \tilde{\lambda_1} | \vect{x}, \beta)}{\pi(t_1, \lambda_0, \lambda_1 | \vect{x}, \beta)} \times \frac{Q(t_1, \lambda_0, \lambda_1 | \vect{x}, \tilde{t_1}, \tilde{\lambda_0}, \tilde{\lambda_1}, \beta)}{Q(\tilde{t_1}, \tilde{\lambda_0}, \tilde{\lambda_1} | \vect{x}, t_1, \lambda_0, \lambda_1)}\right)
+$$
+
+Since $\tilde{t_1} \indep [\tilde{\lambda_0}, \tilde{\lambda_1}]$, it follows that
+
+\begin{align*}
+  Q(\tilde{t_1}, \tilde{\lambda_0}, \tilde{\lambda_1} | \vect{x}, t_1, \lambda_0, \lambda_1) &= Q(\tilde{\lambda_0}, \tilde{\lambda_1} | \tilde{t_1}, \beta) \times Q(\tilde{t_1} | t_1, \beta) \\
+  &= \pi(\tilde{\lambda_0} | \vect{x}, \tilde{t_1}, \beta) \times \pi(\tilde{\lambda_1} | \vect{x}, \tilde{t_1}, \beta) \times \phi(t_1, \sigma^2)
+\end{align*}
+$$
+  = \frac{\tilde{\lambda_0}^{\tilde{y_0} + 1}(\tilde{t_1} - t_0 + \beta^{-1})^{\tilde{y_0} + 2} e^{-\tilde{\lambda_0}(\tilde{t_1} - t_0 + \beta^{-1})}}{\Gamma(\tilde{y_0} + 2)} \times \frac{\tilde{\lambda_1}^{\tilde{y_1} + 1}(t_2 - \tilde{t_1} + \beta^{-1})^{\tilde{y_1} + 2} e^{-\tilde{\lambda_1}(t_2 - \tilde{t_1} + \beta^{-1})}}{\Gamma(\tilde{y_1} + 2)} \times \phi(t_1, \sigma^2)
+$$
+
+The posterior density $\pi(t_1, \lambda_0, \lambda_1 | \vect{x}, \beta)$ up to a proportionality constant is found by marginalizing $\pi(\vect{\theta} | \vect{x})$, i.e.:
+
+$$
+  \pi(t_1, \lambda_0, \lambda_1 | \vect{x}, \beta) \propto \lambda_0^{y_0 + 1} \lambda_1^{y_1 + 1} \exp\left\{-\lambda_0(t_1 - t_0) - \lambda_1(t_2 - t_1) - \frac{1 + \lambda_0 + \lambda_1}{\beta}\right\}
+$$
+
+Notice that $Q(t_1, \lambda_0, \lambda_1 | \vect{x}, \tilde{t_1}, \tilde{\lambda_0}, \tilde{\lambda_1}, \beta) = Q(\tilde{t_1}, \tilde{\lambda_0}, \tilde{\lambda_1} | \vect{x}, t_1, \lambda_0, \lambda_1)$ and $\pi(\tilde{t_1}, \tilde{\lambda_0}, \tilde{\lambda_1} | \vect{x}, \beta) = \pi(t_1, \lambda_0, \lambda_1 | \vect{x}, \beta)$, and so they will be on the same form as the above expressions. Inserting these into $\alpha(\tilde{t_1}, \tilde{\lambda_0}, \tilde{\lambda_1} | \vect{x}, \vect{\theta}_{i-1})$, we get
+
+$$
+  \alpha(\tilde{t_1}, \tilde{\lambda_0}, \tilde{\lambda_1} | \vect{x}, \vect{\theta}_{i-1}) = \min \left( 1, \frac{(t_1 - t_0 + \beta^{-1})^{y_0 + 2}(t_2 - t_1 + \beta^{-2})^{y_1 + 2}}{(\tilde{t_1} - t_0 + \beta^{-1})^{\tilde{y_1} + 2}(t_2 - \tilde{t_1} + \beta^{-1})^{\tilde{y_1} + 2}} \times \frac{\Gamma(\tilde{y_0} + 2) \Gamma(\tilde{y_1} + 2)}{\Gamma(y_0 + 2)\Gamma(y_1 + 2)} \right)
+$$
