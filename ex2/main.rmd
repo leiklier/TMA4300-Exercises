@@ -321,3 +321,31 @@ Notice that $Q(t_1, \lambda_0, \lambda_1 | \vect{x}, \tilde{t_1}, \tilde{\lambda
 $$
   \alpha(\tilde{t_1}, \tilde{\lambda_0}, \tilde{\lambda_1} | \vect{x}, \vect{\theta}_{i-1}) = \min \left( 1, \frac{(t_1 - t_0 + \beta^{-1})^{y_0 + 2}(t_2 - t_1 + \beta^{-2})^{y_1 + 2}}{(\tilde{t_1} - t_0 + \beta^{-1})^{\tilde{y_1} + 2}(t_2 - \tilde{t_1} + \beta^{-1})^{\tilde{y_1} + 2}} \times \frac{\Gamma(\tilde{y_0} + 2) \Gamma(\tilde{y_1} + 2)}{\Gamma(y_0 + 2)\Gamma(y_1 + 2)} \right)
 $$
+
+# Problem B: INLA for Gaussian Data
+
+```{R}
+# Plot gaussian data
+
+gaussian_data = read.delim("Gaussiandata.txt")
+y = gaussian_data[,1]
+t = seq(from=1, to=length(y), by=1)
+
+plot(t, y)
+
+
+```
+## 1:
+
+Given the vector of linear predictors $\boldsymbol\eta=(\eta_1,\ldots,\eta_T)$
+
+In the case above T = 20
+
+The observations $y_t$ are independent and Gaussian distributed with mean phi t and known unit variance:
+
+$$
+  y_t \mid \eta_t \sim \mathcal{N}(\eta_t,1)\quad, for \space t = 1, \space ..., \space T
+$$
+
+
+This model is a latent Gaussian model because
