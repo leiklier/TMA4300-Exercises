@@ -30,6 +30,8 @@ in the UK involving ten or more men killed (Jarrett, 1979). The data is for the 
 March 22nd 1962. It contains a list of floating-point numbers where the integer part specifies which year the accident occurred, and the decimal part specifies at which part of the year it occurred.
 
 ```{R rpackages,eval=TRUE,echo=FALSE}
+set.seed(1234)
+
 # Load the coal-mining data set in the variable `coal`
 # The first and last records in the variable is the
 # start and end dates respectively
@@ -102,7 +104,7 @@ Now assume $n = 1$. Then our model parameters are $\vect{\theta} = \begin{pmatri
 Note that $t_0$ and $t_2$ are the start and end of the time series respectively, and so they are not parameters in our model. We are interested in finding the posterior distribution $\pi(\vect{\theta} | \vect{x})$ up to a proportionality constant. This can be found by using Bayes law:
 
 \begin{align*}
-  \pi(\vect{\theta} | x) &\propto \pi(\vect{x} | \vect{\theta}) \pi(\vect{\theta}) \\
+  \pi(\vect{\theta} | \vect{x}) &\propto \pi(\vect{x} | \vect{\theta}) \pi(\vect{\theta}) \\
   &=  \frac{1}{\beta^5} \lambda_0^{y_0+1} \lambda_1^{y_1+1} \exp\left\{ -\lambda_0(t_1 - t_0) - \lambda_1(t_2 - t_1) - \frac{1 + \lambda_0 + \lambda_1}{\beta} \right\}
 \end{align*}
 
@@ -139,27 +141,27 @@ $$
 
 We want to define and implement a single site MCMC algorithm for $\pi(\vect{\theta} | \vect{x})$. Since three of the full conditionals are standard, we will be using their distributions as proposals. This is known as Gibbs steps, and gives acceptance probabilities of 1. For the last full conditional, $[t_1 | \vect{x}, \lambda_0, \lambda_1, \beta]$, we will be sampling in Metropolis-Hastings (MH) steps. It can be shown that the MH algorithm converges to the target distribution regardless of the choice of proposal distribution. 
 
-Define $\vect{\theta}_i$ to be the realization of our parameter vector $\vect{\theta}$ at the $i$-th MCMC step. Also, let $Q(z^j | \theta^j_{i-1}, \vect{\theta}^{-j}_{i-1})$ be the proposal distribution for the parameter $\theta^j$ at the $i$-th step. Then the acceptance probability $\alpha$ for the proposal $\tilde{\theta}^j$ at the $i$-th iteration can be found to be
+Define $\vect{\theta}_i$ to be the realization of our parameter vector $\vect{\theta}$ at the $i$-th MCMC step. Also, let $Q(\tilde{\theta}^j | \theta^j_{i-1}, \vect{\theta}^{-j}_{i-1})$ be the proposal distribution for the parameter $\theta^j$ at the $i$-th step. Then the acceptance probability $\alpha$ for the proposal $\tilde{\theta}^j$ at the $i$-th iteration can be found to be
 
 $$
-  \alpha(\tilde{\theta}^j | \vect{x}, \vect{\theta}_{i-1}, ) = \min\left\{ 1, \frac{\pi(\tilde{\theta}^j | \vect{x}, \vect{\theta}^{-j}_{i-1})}{\pi(\theta^j_{i-1} | \vect{x}, \vect{\theta}^{-j}_{i-1})} \times \frac{Q(\theta^j_{i-1} | \vect{x}, \tilde{\theta}^j, \vect{\theta}^{-j}_{i-1})}{Q(z^j | \vect{x},   \vect{\theta}_{i-1})} \right\}
+  \alpha(\tilde{\theta}^j | \vect{x}, \vect{\theta}_{i-1}) = \min\left( 1, \frac{\pi(\tilde{\theta}^j | \vect{x}, \vect{\theta}^{-j}_{i-1})}{\pi(\theta^j_{i-1} | \vect{x}, \vect{\theta}^{-j}_{i-1})} \times \frac{Q(\theta^j_{i-1} | \vect{x}, \tilde{\theta}^j, \vect{\theta}^{-j}_{i-1})}{Q(z^j | \vect{x},   \vect{\theta}_{i-1})} \right)
 $$
 
-Since the full conditional for $t_1$ seems to resemble a distribution close to the exponential, it may seem tempting to use an exponential independence proposal. However, the tail of the proposal is heavily dependent on the choice of parameters, and so by choosing them wrong we might end up with a quite bad convergence rate.
+Since the full conditional for $t_1$ seems to resemble a distribution close to the exponential, it may be tempting to use an exponential independence proposal. However, recall that $y_0$ and $y_1$ are dependent on $t_1$, and so it is not close to an exponential at all. Therefore, $[t_1 | \vect{x}, \lambda_0, \lambda_1, \beta]$ should not be sampled by an exponential independence proposal.
 
-A more robust proposal in this case is the random walk. Then $Q(\tilde{t_1} | \vect{x}, \vect{\theta}_{i-1}) = \theta^{t_1}_{i-1} + \pi(\epsilon)$, where $\epsilon$ comes from a 0-centered symmetrical distribution. In our case, we have chosen a Gaussian random walk, i.e.
+Instead we consider the random walk proposal. Then $Q(\tilde{t_1} | \vect{x}, \vect{\theta}_{i-1}) = \theta^{t_1}_{i-1} + \pi(\epsilon)$, where $\epsilon$ comes from a 0-centered symmetrical distribution. In our case, we have chosen a Gaussian random walk, i.e.
 
 $$
-  [\tilde{t_1} | \vect{x}, \vect{\theta}_{i-1}] \sim \phi(\theta^{t_1}_{i-1}, \sigma)
+  [\tilde{t_1} | \vect{x}, \vect{\theta}_{i-1}] \sim \phi(\theta^{t_1}_{i-1}, \sigma^2_{t_1})
 $$
-where $\sigma$ is a tuning parameter. 
+where $\sigma^2_{t_1}$ is a tuning parameter. 
 
 A weakness of the random walk proposal is that the Markov Chain may get stuck in a local maximum. There is no way of being certain that we are avoiding it, but by choosing $\alpha \in [0.2, 0.5]$ one at least reduces the risk for this to happens. This can be done by tuning $\sigma$. 
 
 The proposal distribution for $t_1$ is symmetric around the current value, i.e.$Q(z^{t_1} | \vect{x}, \vect{\theta}_{i-1}) = Q(\theta^{t_1}_{i-1} | \vect{x}, z^{t_1}, \vect{\theta}^{-t_1}_{i-1})$. Hence,
 
 \begin{align*}
-  \alpha(\tilde{t_1} | \vect{x}, \vect{\theta}_{i-1}) &= \min\left\{1, \frac{\pi(\tilde{t_1} | \vect{x}, \vect{\theta}^{-t_1}_{i-1})}{\pi(\theta^{t_1}_{i-1} | \vect{x}, \vect{\theta}^{-t_1}_{i-1})} \right\} \\
+  \alpha(\tilde{t_1} | \vect{x}, \vect{\theta}_{i-1}) &= \min\left(1, \frac{\pi(\tilde{t_1} | \vect{x}, \vect{\theta}^{-t_1}_{i-1})}{\pi(\theta^{t_1}_{i-1} | \vect{x}, \vect{\theta}^{-t_1}_{i-1})} \right) \\
   &= \lambda_0^{\tilde{y_0} - y_0} \lambda_1^{\tilde{y_1} - y_1} \exp\left\{(\tilde{t_1} - \theta^{t_1}_{i-1}) (\lambda_1 - \lambda_0)\right\}
 \end{align*}
 
@@ -181,7 +183,7 @@ sample_beta_fc = function(lambda0, lambda1) {
   return(rinvgamma(1, shape=4, scale=1/(1 + lambda0 + lambda1)))
 }
 
-sample_t1_fc = function(t1_prev, lambda0, lambda1, t0, t2, x, sigma) {
+sample_t1_rw = function(t1_prev, lambda0, lambda1, t0, t2, x, sigma) {
   y0_prev = sum(x <= t1_prev)
   y1_prev = sum(x > t1_prev)
   
@@ -235,7 +237,7 @@ run_mcmc_single = function(n_iterations, x, sigma, t1_start, lambda0_start, lamb
   )
   
   for(i in 1:n_iterations) {
-    t1_result = sample_t1_fc(curr_params$t1, curr_params$lambda0, curr_params$lambda1, t0, t2, x, sigma)
+    t1_result = sample_t1_rw(curr_params$t1, curr_params$lambda0, curr_params$lambda1, t0, t2, x, sigma)
     curr_params$t1 = t1_result$t1
     
     curr_params$lambda0 = sample_lambda0_fc(t0, curr_params$t1, curr_params$beta, t1_result$y0)
@@ -257,7 +259,7 @@ n_iterations = 10000
 x = coal$date
 
 # Tuning param
-sigma = 10
+sigma_t1 = 3.5
 
 # Params:
 lambda0_start = 80
@@ -266,7 +268,7 @@ beta_start = sample_beta_fc(lambda0_start, lambda1_start)
 t1_start = 1940
 
 # Calculate
-result = run_mcmc_single(n_iterations, x, sigma, t1_start, lambda0_start, lambda1_start, beta_start)
+result = run_mcmc_single(n_iterations, x, sigma_t1, t1_start, lambda0_start, lambda1_start, beta_start)
 sprintf("Acceptance rate for t_1: %f", length(result$t1_accepted[result$t1_accepted == T]) / nrow(result) )
 ```
 
@@ -304,10 +306,10 @@ Since $\tilde{t_1} \indep [\tilde{\lambda_0}, \tilde{\lambda_1}]$, it follows th
 
 \begin{align*}
   Q(\tilde{t_1}, \tilde{\lambda_0}, \tilde{\lambda_1} | \vect{x}, t_1, \lambda_0, \lambda_1) &= Q(\tilde{\lambda_0}, \tilde{\lambda_1} | \tilde{t_1}, \beta) \times Q(\tilde{t_1} | t_1, \beta) \\
-  &= \pi(\tilde{\lambda_0} | \vect{x}, \tilde{t_1}, \beta) \times \pi(\tilde{\lambda_1} | \vect{x}, \tilde{t_1}, \beta) \times \phi(t_1, \sigma^2)
+  &= \pi(\tilde{\lambda_0} | \vect{x}, \tilde{t_1}, \beta) \times \pi(\tilde{\lambda_1} | \vect{x}, \tilde{t_1}, \beta) \times \phi(t_1, \sigma^2_{t_1})
 \end{align*}
 $$
-  = \frac{\tilde{\lambda_0}^{\tilde{y_0} + 1}(\tilde{t_1} - t_0 + \beta^{-1})^{\tilde{y_0} + 2} e^{-\tilde{\lambda_0}(\tilde{t_1} - t_0 + \beta^{-1})}}{\Gamma(\tilde{y_0} + 2)} \times \frac{\tilde{\lambda_1}^{\tilde{y_1} + 1}(t_2 - \tilde{t_1} + \beta^{-1})^{\tilde{y_1} + 2} e^{-\tilde{\lambda_1}(t_2 - \tilde{t_1} + \beta^{-1})}}{\Gamma(\tilde{y_1} + 2)} \times \phi(t_1, \sigma^2)
+  = \frac{\tilde{\lambda_0}^{\tilde{y_0} + 1}(\tilde{t_1} - t_0 + \beta^{-1})^{\tilde{y_0} + 2} e^{-\tilde{\lambda_0}(\tilde{t_1} - t_0 + \beta^{-1})}}{\Gamma(\tilde{y_0} + 2)} \times \frac{\tilde{\lambda_1}^{\tilde{y_1} + 1}(t_2 - \tilde{t_1} + \beta^{-1})^{\tilde{y_1} + 2} e^{-\tilde{\lambda_1}(t_2 - \tilde{t_1} + \beta^{-1})}}{\Gamma(\tilde{y_1} + 2)} \times \phi(t_1, \sigma^2_{t_1})
 $$
 
 The posterior density $\pi(t_1, \lambda_0, \lambda_1 | \vect{x}, \beta)$ up to a proportionality constant is found by marginalizing $\pi(\vect{\theta} | \vect{x})$, i.e.:
@@ -319,5 +321,199 @@ $$
 Notice that $Q(t_1, \lambda_0, \lambda_1 | \vect{x}, \tilde{t_1}, \tilde{\lambda_0}, \tilde{\lambda_1}, \beta) = Q(\tilde{t_1}, \tilde{\lambda_0}, \tilde{\lambda_1} | \vect{x}, t_1, \lambda_0, \lambda_1)$ and $\pi(\tilde{t_1}, \tilde{\lambda_0}, \tilde{\lambda_1} | \vect{x}, \beta) = \pi(t_1, \lambda_0, \lambda_1 | \vect{x}, \beta)$, and so they will be on the same form as the above expressions. Inserting these into $\alpha(\tilde{t_1}, \tilde{\lambda_0}, \tilde{\lambda_1} | \vect{x}, \vect{\theta}_{i-1})$, we get
 
 $$
-  \alpha(\tilde{t_1}, \tilde{\lambda_0}, \tilde{\lambda_1} | \vect{x}, \vect{\theta}_{i-1}) = \min \left( 1, \frac{(t_1 - t_0 + \beta^{-1})^{y_0 + 2}(t_2 - t_1 + \beta^{-2})^{y_1 + 2}}{(\tilde{t_1} - t_0 + \beta^{-1})^{\tilde{y_1} + 2}(t_2 - \tilde{t_1} + \beta^{-1})^{\tilde{y_1} + 2}} \times \frac{\Gamma(\tilde{y_0} + 2) \Gamma(\tilde{y_1} + 2)}{\Gamma(y_0 + 2)\Gamma(y_1 + 2)} \right)
+  \alpha(\tilde{t_1}, \tilde{\lambda_0}, \tilde{\lambda_1} | \vect{x}, \vect{\theta}_{i-1}) = \min \left( 1, \frac{(t_1 - t_0 + \beta^{-1})^{y_0 + 2}(t_2 - t_1 + \beta^{-1})^{y_1 + 2}}{(\tilde{t_1} - t_0 + \beta^{-1})^{\tilde{y_0} + 2}(t_2 - \tilde{t_1} + \beta^{-1})^{\tilde{y_1} + 2}} \times \frac{\Gamma(\tilde{y_0} + 2) \Gamma(\tilde{y_1} + 2)}{\Gamma(y_0 + 2)\Gamma(y_1 + 2)} \right)
 $$
+Let's now check if this equation can be used in a numerical setting. From our single-site MCMC, we estimated $\hat{t_1} = 1890$, $\hat{\beta} = 3$, with $t_0 = 1850$. Then we get $\hat{y_0} = 130$, and so $(\hat{t_1} - \hat{t_0} + \hat{\beta}^{-1})^{\hat{y_0} + 2} \approx 2.964277\text{E+}211$. This will lead to numerical overflow, and so it should be calculated in $\log$-scale instead.
+
+In the second block, we start by sampling $[\tilde{\beta} | \vect{x}, \vect{\theta}^{-\beta}_{i-1}] \sim \phi(\beta, \sigma^2_\beta)$. Then we use this proposal $\tilde{\beta}$ to sample $[\tilde{\lambda_0}, \tilde{\lambda_1} | \vect{x}, t_1, \tilde{\beta}] \sim \pi(\lambda_0, \lambda_1 | \vect{x}, t_1, \tilde{\beta})$. Notice that  $\pi(\lambda_0, \lambda_1 | \vect{x}, \tilde{t_1}, \beta) =  \pi(\lambda_0, \lambda_1 | \vect{x}, t_1, \tilde{\beta})$, so we already have an expression for sampling $\tilde{\lambda_0}$ and $\tilde{\lambda_1}$. For the acceptance probability, we have that
+
+$$
+  \alpha(\tilde{\lambda_0}, \tilde{\lambda_1}, \tilde{\beta} | \vect{x}, \vect{\theta}_{i-1}) = \min \left( 1, \frac{\pi(\tilde{\lambda_0}, \tilde{\lambda_1}, \tilde{\beta} | \vect{x}, t_1)}{\pi(\lambda_0, \lambda_1, \beta | \vect{x}, t_1)} \times \frac{Q(\lambda_0, \lambda_1, \beta | \vect{x}, t_1, \tilde{\lambda_0}, \tilde{\lambda_1}, \tilde{\beta})}{Q(\tilde{\lambda_0}, \tilde{\lambda_1}, \tilde{\beta} | \vect{x}, t_1, \lambda_0, \lambda_1, \beta)}\right)
+$$
+
+Similarly to what was the case for the first block,
+
+\begin{align*}
+  Q(\tilde{\lambda_0}, \tilde{\lambda_1}, \tilde{\beta} | \vect{x}, t_1, \lambda_0, \lambda_1, \beta) &= Q(\tilde{\lambda_0}, \tilde{\lambda_1} | \vect{x}, t_1, \tilde{\beta}) \times \phi(\beta, \sigma^2_\beta) \\
+  &= \pi(\tilde{\lambda_0} | \vect{x}, t_1, \tilde{\beta}) \times \pi(\tilde{\lambda_0} | \vect{x}, t_1, \tilde{\beta}) \times \phi(\beta, \sigma^2_\beta)
+\end{align*}
+
+It then follows that
+
+$$
+  Q(\tilde{\lambda_0}, \tilde{\lambda_1} | \vect{x}, t_1, \tilde{\beta}) = \frac{\tilde{\lambda_0}^{y_0 + 1} (t_1 - t_0 + \tilde{\beta}^{-1})^{y_0 + 2} e^{-\tilde{\lambda_0}(t_1 - t_0 + \tilde{\beta}^{-1})}}{\Gamma(y_0 + 2)} \times \frac{\tilde{\lambda_1}^{y_1 + 1} (t_2 - t_1 + \tilde{\beta}^{-1})^{y_1 + 2} e^{-\tilde{\lambda_1}(t_2 - t_1 + \tilde{\beta}^{-1})}}{\Gamma(y_1 + 2)} 
+$$
+
+By marginalizing $\pi(\vect{\theta} | \vect{x})$, we get
+$$
+  \pi(\lambda_0, \lambda_1, \beta | \vect{x}, t_1) \propto \frac{1}{\beta^5} \lambda_0^{y_0 + 1} \lambda_1^{y_1 + 1} \exp\left\{-\lambda_0\left(t_1 - t_0 + \beta^{-1}\right)-\lambda_1\left(t_2 - t_1 + \beta^{-1}\right)\right\}
+$$
+
+The same can be done for $\pi(\tilde{\lambda_0}, \tilde{\lambda_1}, \tilde{\beta} | \vect{x}, t_1)$ and $Q(\lambda_0, \lambda_1, \beta | \vect{x}, t_1, \tilde{\lambda_0}, \tilde{\lambda_1}, \tilde{\beta})$. Inserting these expressions into the equation for the acceptance probability, we end up with
+
+$$
+  \alpha(\tilde{\lambda_0}, \tilde{\lambda_1}, \tilde{\beta} | \vect{x}, \vect{\theta}_{i-1}) = \min \left( 1, \frac{\beta^5}{\tilde{\beta}^5} \cdot \frac{(t_1 - t_0 + \beta^{-1})^{y_0 + 2}(t_2 - t_1 + \beta^{-1})^{y_1 + 2}}{(t_1 - t_0 + \tilde{\beta}^{-1})^{y_0 + 2}(t_2 - t_1 + \tilde{\beta}^{-1})^{y_1 + 2}}\right)
+$$
+Also for this $\alpha$ we have factors which would lead to numerical overflow, so we calculate this acceptance probability in $\log$-scale.
+
+Notice that we by using these block proposals are proposing samples for $\lambda_0$ and $\lambda_1$ for each iteration, whereas $t_1$ and $\beta$ are only proposed samples every other iteration. This is in theory not an issue, as MCMC still guarantees eventual convergence. But we do have to make sure that they both are converging by tuning $\sigma^2_{t_1}$ and $\sigma^2_\beta$ such that  $\left\{\alpha(\tilde{\lambda_0}, \tilde{\lambda_1}, \tilde{\beta} | \vect{x}, \vect{\theta}_{i-1}), \alpha(\tilde{\lambda_0}, \tilde{\lambda_1}, \tilde{\beta} | \vect{x}, \vect{\theta}_{i-1})\right\} \in [0.2, 0.5]$ as previously mentioned.
+
+An implementation of the proposed block Metropolis-Hastings algorithm has been provided in the listing below.
+
+```{R}
+sample_first_block = function(curr_params, x, t0, t2, sigma_t1) {
+  t1_proposal = rnorm(1, curr_params$t1, sigma_t1)
+  # Should we reject here instead?
+  if(t1_proposal > t2 || t1_proposal < t0) {
+    t1_proposal = curr_params$t1
+  }
+  
+  y0_prev = sum(x <= curr_params$t1)
+  y1_prev = sum(x > curr_params$t1)
+  
+  y0_proposal = sum(x <= t1_proposal)
+  y1_proposal = sum(x > t1_proposal)
+  
+  lambda0_proposal = sample_lambda0_fc(t0, t1_proposal, curr_params$beta, y0_proposal)
+  lambda1_proposal = sample_lambda1_fc(t1_proposal, t2, curr_params$beta, y1_proposal)
+  
+  alpha_first_part_log = 
+      (y0_prev + 2)*log(curr_params$t1 - t0 + 1/curr_params$beta) +
+      (y1_prev + 2)*log(t2 - curr_params$t1 + 1/curr_params$beta) -
+      (y0_proposal + 2)*log(t1_proposal - t0 + 1/curr_params$beta) -
+      (y1_proposal + 2)*log(t2 - t1_proposal + 1/curr_params$beta)
+  
+  alpha_second_part_log = lgamma(y0_proposal + 2) + lgamma(y1_proposal + 2) - lgamma(y0_prev + 2)  - lgamma(y1_prev + 2)
+  
+  alpha = min(1, exp(alpha_first_part_log + alpha_second_part_log))
+  u = runif(1)
+  
+  if(u < alpha) {
+    # Accept
+    curr_params$t1 = t1_proposal
+    curr_params$lambda0 = lambda0_proposal
+    curr_params$lambda1 = lambda1_proposal
+    curr_params$accepted = T
+    return(curr_params)
+  } else {
+    # Reject
+    curr_params$accepted = F
+    return(curr_params)
+  }
+}
+
+sample_second_block = function(curr_params, x, t0, t2, sigma_beta) {
+  beta_proposal = rnorm(1, curr_params$beta, sigma_beta)
+  # Should we reject here instead?
+  if(beta_proposal <= 0) {
+    beta_proposal = curr_params$beta
+  }
+  
+  y0_prev = sum(x <= curr_params$t1)
+  y1_prev = sum(x > curr_params$t1)
+  
+  lambda0_proposal = sample_lambda0_fc(t0, curr_params$t1, beta_proposal, y0_prev)
+  lambda1_proposal = sample_lambda1_fc(curr_params$t1, t2, beta_proposal, y1_prev)
+  
+  alpha_log =
+      5*(log(curr_params$beta) - log(beta_proposal)) +
+      (y0_prev + 2)*(log(curr_params$t1 - t0 + 1/curr_params$beta) -
+        log(curr_params$t1 - t0 + 1/beta_proposal)) +
+      (y1_prev + 2)*(log(t2 - curr_params$t1 + 1/curr_params$beta) -
+        log(t2 - curr_params$t1 + 1/beta_proposal))
+  
+  alpha = min(1, exp(alpha_log))
+  u = runif(1)
+  
+  if(u < alpha) {
+    # Accept
+    curr_params$beta = beta_proposal
+    curr_params$lambda0 = lambda0_proposal
+    curr_params$lambda1 = lambda1_proposal
+    curr_params$accepted = T
+    return(curr_params)
+  } else {
+    # Reject
+    curr_params$accepted=F
+    return(curr_params)
+  }
+}
+
+run_mcmc_block = function(n_iterations, x, sigma_t1, sigma_beta, t1_start, lambda0_start, lambda1_start, beta_start) {
+  t0 = x[1]
+  t2 = tail(x, n=1)
+  
+  result = data.frame(
+    t1=c(t1_start, rep(NA, n_iterations - 1)),
+    lambda0=c(lambda0_start, rep(rep(NA, n_iterations-1))),
+    lambda1=c(lambda1_start, rep(rep(NA, n_iterations-1))),
+    beta=c(beta_start, rep(rep(NA, n_iterations-1))),
+    t1_accepted=c(T, rep(NA, n_iterations-1))
+  )
+  
+  # Storing the current parameters in a list is practical,
+  # since we can change the sampling order without having to deal
+  # with indexes
+  curr_params = list(
+    t1=t1_start,
+    lambda0=lambda0_start,
+    lambda1=lambda1_start,
+    beta=beta_start
+  )
+  
+  for(i in 1:n_iterations) {
+    if(i %% 2 == 1) {
+      curr_params = sample_first_block(curr_params, x, t0, t2, sigma_t1)
+    } else {
+      curr_params = sample_second_block(curr_params, x, t0, t2, sigma_beta)
+    }
+    result[i,] = curr_params
+  }
+  
+  return(result)
+}
+```
+
+We test it below:
+
+```{R}
+n_iterations = 10000
+x = coal$date
+
+# Tuning parameters
+sigma_t1 = 3.5
+sigma_beta = 3
+
+# Model parameters:
+lambda0_start = 5
+lambda1_start = 5
+beta_start = sample_beta_fc(lambda0_start, lambda1_start)
+t1_start = 1940
+
+# Calculate
+result = run_mcmc_block(n_iterations, x, sigma_t1, sigma_beta, t1_start, lambda0_start, lambda1_start, beta_start)
+sprintf("Acceptance rate for t_1: %f", length(result$t1_accepted[result$t1_accepted == T]) / nrow(result) )
+```
+
+```{R}
+t0 = x[1]
+t1 = mean(result$t1)
+t2 = tail(x, n=1)
+lambda0 = mean(result$lambda0)
+lambda1 = mean(result$lambda1)
+
+y0 = 0
+y1 = lambda0 * (t1 - t0)
+y2 = y1 + lambda1 * (t2 - t1)
+
+ggplot() +
+  geom_point(data=coal_by_year, aes(x=year, y=cum_n, group=1)) +
+  geom_segment(aes(x=t0, y=y0, xend=t1, yend=y1)) +
+  geom_segment(aes(x=t1, y=y1, xend=t2, yend=y2)) +
+  ggtitle("Cumulative number of accidents in coal-mines vs year")
+
+```
+
+
+
+
