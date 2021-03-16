@@ -23,11 +23,11 @@ subtitle: 'Group members: Eide, Jonathan and Lima-Eriksen, Leik'
 \newcommand{\Cov}{\textrm{Cov}}
 \newcommand{\Corr}{\textrm{Corr}}
 
-# Problem A: Analysis of coal-mining disasters timeseries
+# Problem A: Modelling coal-mining disasters timeseries
 
 In this problem we will take a closer look at a famous data set of time intervals between successive coal-mining disasters
 in the UK involving ten or more men killed (Jarrett, 1979). The data is for the period March 15th 1851 to
-March 22nd 1962. It contains a list of floating-point numbers where the integer part specifies which year the accident occurred, and the decimal part specifies at which part of the year it occurred.
+March 22nd 1962. It contains a list of floating-point numbers where the integer part specifies in which year the accident occurred, and the decimal part specifies at which part of the year it occurred.
 
 ```{R rpackages,eval=TRUE,echo=FALSE}
 set.seed(1234)
@@ -45,7 +45,7 @@ library(ggpubr)
 ```
 
 
-In order to get an impression of how the data we will be analyzing looks like, we start off by making a histogram with year along the $x$-axis and cumulative
+In order to get an impression of how the data we will be modeling looks like, we start off by making a histogram with year along the $x$-axis and cumulative
 number of disasters along the $y$-axis. The plot has been provided in the figure below:
 
 ```{R}
@@ -59,8 +59,8 @@ ggplot(data=coal_by_year, aes(x=year, y=cum_n, group=1)) +
 
 Observe that between 1850 and 1890 the number of accidents per year seems to be quite constant, as the cumulative plot has a linear trend. Afterwards, we see that the trends flattens more out between 1900 and 1925. This should make sense, because advancements in the safety for the coal-miners were likely to happen at some point, which would drag this rate down. Another explanation could be a decrease in demand for coal, which would result in fewer accidents since fewer people were required to work in the coal-mines. It then increased between 1930 and 1947. This could either be because the ongoing wars required people to work under fewer safety constraints. Another reason could be that the wars increased the demand for coal, which meant that more people had to work in the mines. Both reasons would further explain why the rate fell after the wars.
 
-We see that the dataset has several distinct periods where each period has an approximately constant rate at which the accidents occurred. Therefore it seems reasonable to assume that the coal-mining disasters
-follows an inhomogeneous Poisson process with intensity function $\lambda(t)$ (number of events per year), where we assume
+We see that the dataset has several distinct periods where each period has an approximately constant rate at which the accidents occurred. It therefore seems reasonable to assume that the coal-mining disasters
+follow an inhomogeneous Poisson process with intensity function $\lambda(t)$ (number of events per year), where we assume
 $\lambda(t)$ to be piecewise constant with $n$ breakpoints. Let $t_0$ and $t_{n+1}$ to denote the start and end times for the
 data set and let $t_k; k = 1, \dots, n$ denote the breakpoints of the intensity function. Thus,
 
@@ -79,10 +79,10 @@ subdividing the observation period into short intervals, and taking the limit wh
   &= \exp\left( -\sum_{k=0}^n \lambda_k (t_{k+1} - t_k) \right) \prod_{k=0}^n \lambda^{y_k}
 \end{align*}
 
-where $x$ is the observed data and $y_k$ is the number of observed disasters in the period $t_k$ to $t_{k+1}$. Assume
+where $\vect{x}$ is the observed data and $y_k$ is the number of observed disasters in the period $t_k$ to $t_{k+1}$. Assume
 $t_1, \dots, t_n$ to be apriori uniformly distributed on the allowed values, and $\lambda_0, \dots, \lambda_n$ to be apriori independent
 of $t_1, \dots, t_n$ and apriori independent of each other. Apriori we assume all $\lambda_0, \dots , \lambda_n$ to be distributed from
-the same gamma distribution with shape parameter $\alpha = 2$ and scale parameter $\beta$, i.e.
+the same Gamma distribution with shape parameter $\alpha = 2$ and scale parameter $\beta$, i.e.
 
 $$
   \pi(\lambda_i | \beta) = \frac{1}{\beta^2} \lambda_i \exp\left\{-\frac{\lambda_i}{\beta}\right\} \quad \forall \quad \lambda_i \geq 0
@@ -114,7 +114,7 @@ $$
   \pi(\theta^j | \vect{x}, \vect{\theta}^{-j}) = \frac{\pi(\vect{\theta} | \vect{x})}{\pi(\vect{\theta}^{-j} | \vect{x})} \propto  \pi(\vect{\theta} | \vect{x})
 $$
 
-In other words, the full conditionals can be directly derived from the posterior density $\pi(\vect{\theta} | \vect{x})$ by omitting all multiplicative factors which do not depend on $\theta^j$:
+Stated differently, the full conditionals can be directly derived from the posterior density $\pi(\vect{\theta} | \vect{x})$ by omitting all multiplicative factors which do not depend on $\theta^j$:
 
 \begin{align*}
   \pi(t_1 | \vect{x}, \lambda_0, \lambda_1, \beta) &\propto \lambda_0^{y_0+1} \lambda_1^{y_1+1} \exp\left\{ t_1(\lambda_1 - \lambda_0) \right\} \quad &&\forall \quad t_1 \in [t_0, t_1] \\
@@ -147,6 +147,8 @@ $$
   \alpha(\tilde{\theta}^j | \vect{x}, \vect{\theta}_{i-1}) = \min\left( 1, \frac{\pi(\tilde{\theta}^j | \vect{x}, \vect{\theta}^{-j}_{i-1})}{\pi(\theta^j_{i-1} | \vect{x}, \vect{\theta}^{-j}_{i-1})} \times \frac{Q(\theta^j_{i-1} | \vect{x}, \tilde{\theta}^j, \vect{\theta}^{-j}_{i-1})}{Q(z^j | \vect{x},   \vect{\theta}_{i-1})} \right)
 $$
 
+From the expression above, one can confirm that the Gibbs steps give $\alpha = 1$, since the proposal is equal to the full conditional, and so all factors in the fractions cancel out. So a Gibbs step is just a special case of a Metropolis-Hastings step.
+
 Since the full conditional for $t_1$ seems to resemble a distribution close to the exponential, it may be tempting to use an exponential independence proposal. However, recall that $y_0$ and $y_1$ are dependent on $t_1$, and so it is not close to an exponential at all. Therefore, $[t_1 | \vect{x}, \lambda_0, \lambda_1, \beta]$ should not be sampled by an exponential independence proposal.
 
 Instead we consider the random walk proposal. Then $Q(\tilde{t_1} | \vect{x}, \vect{\theta}_{i-1}) = \theta^{t_1}_{i-1} + \pi(\epsilon)$, where $\epsilon$ comes from a 0-centered symmetrical distribution. In our case, we have chosen a Gaussian random walk, i.e.
@@ -156,9 +158,9 @@ $$
 $$
 where $\sigma^2_{t_1}$ is a tuning parameter. 
 
-A weakness of the random walk proposal is that the Markov Chain may get stuck in a local maximum. There is no way of being certain that we are avoiding it, but by choosing $\alpha \in [0.2, 0.5]$ one at least reduces the risk for this to happens. This can be done by tuning $\sigma$. 
+A weakness of the random walk proposal is that the Markov Chain may get stuck in a local maximum. There is no way of being certain that we are avoiding it, but by choosing $\alpha \in [0.2, 0.5]$ one at least reduces the risk for this to happen. This can be done by tuning $\sigma^2_{t_1}$. 
 
-The proposal distribution for $t_1$ is symmetric around the current value, i.e.$Q(z^{t_1} | \vect{x}, \vect{\theta}_{i-1}) = Q(\theta^{t_1}_{i-1} | \vect{x}, z^{t_1}, \vect{\theta}^{-t_1}_{i-1})$. Hence,
+The proposal distribution for $t_1$ is symmetric around the current value, i.e. $Q(\tilde{\theta}^{t_1} | \vect{x}, \vect{\theta}_{i-1}) = Q(\theta^{t_1}_{i-1} | \vect{x}, \tilde{\theta}^{t_1}, \vect{\theta}^{-t_1}_{i-1})$. Hence,
 
 \begin{align*}
   \alpha(\tilde{t_1} | \vect{x}, \vect{\theta}_{i-1}) &= \min\left(1, \frac{\pi(\tilde{t_1} | \vect{x}, \vect{\theta}^{-t_1}_{i-1})}{\pi(\theta^{t_1}_{i-1} | \vect{x}, \vect{\theta}^{-t_1}_{i-1})} \right) \\
@@ -252,43 +254,98 @@ run_mcmc_single = function(n_iterations, x, sigma, t1_start, lambda0_start, lamb
 }
 ```
 
-We start off with verifying that our Markov chain converges for arbitrary initial values of $t_1$. 
+Since we have a tuning parameter $\sigma^2_{t_1}$, it is interesting to evaluate the performance of the algorithm when varying it. 
 
 ```{R}
-n_iterations = 10000
+n_iterations = 50000
 x = coal$date
 
-# Tuning param
-sigma_t1 = 3.5
+# Tuning parameters
+sigma_t1s = c(1, 5, 10, 20)
 
-# Params:
-lambda0_start = 80
-lambda1_start = 0.5
+# Model parameters:
+lambda0_start = 2
+lambda1_start = 2
 beta_start = sample_beta_fc(lambda0_start, lambda1_start)
 t1_start = 1940
 
-# Calculate
-result = run_mcmc_single(n_iterations, x, sigma_t1, t1_start, lambda0_start, lambda1_start, beta_start)
-sprintf("Acceptance rate for t_1: %f", length(result$t1_accepted[result$t1_accepted == T]) / nrow(result) )
+result.s_1 = run_mcmc_single(n_iterations, x, 1, t1_start, lambda0_start, lambda1_start, beta_start)
+result.s_5 = run_mcmc_single(n_iterations, x, 5, t1_start, lambda0_start, lambda1_start, beta_start)
+result.s_10 = run_mcmc_single(n_iterations, x, 10, t1_start, lambda0_start, lambda1_start, beta_start)
+result.s_20 = run_mcmc_single(n_iterations, x, 20, t1_start, lambda0_start, lambda1_start, beta_start)
+```
+```{R}
+plot.s_1 = ggplot(data=result.s_1, aes(x=iter, y=t1)) + geom_line()
+plot.s_5 = ggplot(data=result.s_5, aes(x=iter, y=t1)) + geom_line()
+plot.s_10 = ggplot(data=result.s_10, aes(x=iter, y=t1)) + geom_line()
+plot.s_20 = ggplot(data=result.s_20, aes(x=iter, y=t1)) + geom_line()
+
+ggarrange(ggarrange(plot.s_1, plot.s_5, ncol=2, labels=c("sigma=1", "sigma=5")),
+          ggarrange(plot.s_10, plot.s_20, ncol=2, labels=c("sigma=10", "sigma=20")),
+          nrow=2)
+
 ```
 
+Above is the trace plots for the exploration of $t_1$ plotted for different values of $\sigma^2_{t_1}$. We have intentionally provided an initial value $\theta^{t_1}_0 = 1940$, since we know that this is a local maximum for $t_1$. Observe that with $\sigma_{t_1} = 1$, the algorithm gets stuck in this local maximum at $t_1 \approx 1940$ for almost over half of the time. This happens because the random walk process takes moves in quite small steps, and so the probability of taking long steps to escape the local maximum is really small. This means that the algorithm will have a really long burn-in for too low $\sigma_{t_1}$, and in the case of $\sigma_{t_1} = 1$, the burn-in was in this case around 7000 We get an improvement with increasing $\sigma_{t_1}$ as expected, and for $\sigma_{t_1} \in \{5, 10\}$ we see that the Markov Chain explores the sample space pretty well. However, with even higher values such as $\sigma_{t_1} = 20$, we get new issues. Now the sampler is proposing samples way outsides our modes, and so we get a lot of rejections. This means that it will stay at the same value for a long time before moving. It may be a bit difficult to observe in the plot above, so we have zoomed in on the traceplot for $\sigma_{t_1} \in \{5, 20\}$ in the figure below:
 
 ```{R}
-ggplot(data=result, aes(x=iter,y=t1)) +
-  geom_line() +
-  ggtitle("Trace plot of t1 samples")
-
-hist(result$t1)
+plot.s_5_zoomed = ggplot(data=result.s_5[10000:10500,], aes(x=iter, y=t1)) + geom_line()
+plot.s_20_zoomed = ggplot(data=result.s_20[10000:10500,], aes(x=iter, y=t1)) + geom_line()
+ggarrange(plot.s_5_zoomed, plot.s_20_zoomed, ncol=2, labels=c("sigma=5", "sigma=20"))
 ```
+
+Here it is quite prominent that we have to reject up to 80 samples before we get a new accepted proposal. This makes the algorithm really inefficient, and so we know from this that $\sigma_{t_1} < 20$ in order for the algorithm to have an acceptable acceptance rate.. 
+
+
+Below we have calculated the acceptance rates for each value of $\sigma_{t_1}$. We see that $\alpha(\tilde{t_1} | \vect{x}, \vect{\theta}_{i-1}) \notin [0.2, 0.5] \quad \forall \quad \sigma_{t_1} \in \{1, 10, 20\}$. Combined with the traceplots above, we conclude with that $\sigma_{t_1}$ gives best mixing properties for $t_1$, and is a good value to use. 
+```{R}
+acceptances = data.frame("sigma", "acceptance")
+acceptances[nrow(acceptances)+1,] = c(1, length(result.s_1$t1_accepted[result.s_1$t1_accepted == T]) / nrow(result.s_1))
+acceptances[nrow(acceptances)+1,] = c(5, length(result.s_5$t1_accepted[result.s_5$t1_accepted == T]) / nrow(result.s_5))
+acceptances[nrow(acceptances)+1,] = c(10, length(result.s_10$t1_accepted[result.s_10$t1_accepted == T]) / nrow(result.s_10))
+acceptances[nrow(acceptances)+1,] = c(20, length(result.s_20$t1_accepted[result.s_20$t1_accepted == T]) / nrow(result.s_20))
+print(acceptances)
+```
+It should however be noted that the choice of $\sigma_{t_1}$ should \textit{not} affect the limiting distribution, and we want to prove this. Below we have plotted the limiting distribution for the full conditional of $t_1$ with $\sigma_{t_1} \in \{5, 10\}$. We used these values because they give a high enough acceptance rate so that we do not need to run the algorithms for several minutes in order for the distributions to converge. By limiting distribution we mean the distribution we get from the samples when we neglect the samples from the burn-in period. Let the burn-in period be 3000 samples for both of them. Then the limiting distributions will be as follows:
+
+```{R}
+burnin = 3000
+plot.s_5_hist = ggplot(data=result.s_5[burnin:nrow(result.s_5),], aes(x=t1)) + geom_density()
+plot.s_10_hist = ggplot(data=result.s_10[burnin:nrow(result.s_10),], aes(x=t1)) + geom_density()
+ggarrange(plot.s_5_hist, plot.s_10_hist, ncol=2, labels=c("sigma=5", "sigma=10"))
+```
+
+We do see some differences between these distributions, e.g. in the second-highest mode and the rightmost mode. But recall that MCMC only guarantees \textit{eventual} convergence, and therefore there will also be some small differences between the limiting distributions for different values of tuning parameters, random seeds etc. The plots above do however prove the fact that they converge to the same distributions, as they are quite similar. 
+
+Now that we have evaluated burn-in, mixing properties and the fact that the choice of $\sigma_{t_1}$ does not affect the limiting distribution, we have actually left off maybe the most important question; how does the estimated model parameters match the data that we provided? In order to find an estimate of $\E[\vect{\theta} | \vect{x}]$ we would ideally have used a Maximum Likelihood estimator on the data. But since this project is all about MCMC, we have simplified the problem a bit and will assume that the ML estimate can be approximated to the sample mean for each of the model parameters. Below we have calculated these estimated and superimposed the expectation lines which ensembles the estimates on top of the cumulative data. We have used the samples obtained from using $\sigma_{t_1} = 10$.
+
+```{R}
+burnin = 3000
+t0 = x[1]
+t1 = mean(result.s_5[burnin:nrow(result.s_5),]$t1)
+t2 = tail(x, n=1)
+lambda0 = mean(result.s_5[4000:nrow(result.s_5),]$lambda0)
+lambda1 = mean(result.s_5[4000:nrow(result.s_5),]$lambda1)
+
+y0 = 0
+y1 = lambda0 * (t1 - t0)
+y2 = y1 + lambda1 * (t2 - t1)
+
+ggplot() +
+  geom_point(data=coal_by_year, aes(x=year, y=cum_n, group=1, colour="data")) +
+  geom_segment(aes(x=t0, y=y0, xend=t1, yend=y1, colour="estimate")) +
+  geom_segment(aes(x=t1, y=y1, xend=t2, yend=y2, colour="estimate")) +
+  ggtitle("Cumulative number of accidents in coal-mines vs year")
+```
+
+From the above plot, we see that the estimates matches the data pretty well, and so we conclude that our single site Metropolis-within-Gibbs MCMC sampler works as intended.
 
 We now want to implement MCMC using the following block proposals, where we will be alternating between the two proposals for each iteration:
 
-\begin{itemize}
-  \item $(t_1, \lambda_0, \lambda_1)$ keeping $\beta$ unchanged \\
-  \item $(\beta, \lambda_0, \lambda_1)$ keeping $t_1$ unchanged
-\end{itemize}
+* $(t_1, \lambda_0, \lambda_1)$ keeping $\beta$ unchanged
+* $(\beta, \lambda_0, \lambda_1)$ keeping $t_1$ unchanged
   
-For the first block, we start by sampling our proposal $\tilde{t_1}$ using the Gaussian random walk as done in our single-site MCMC algorithm. Then $\lambda_0$ and $\lambda_1$ can be sampled from their joint conditional conditioned on the proposed $\tilde{t_1}$, $\pi(\lambda_0, \lambda_1 | \vect{x}, \tilde{t_1}, \beta)$. Recognize that the non-normalized joint conditional can be found by omitting all multiplicative factors from $\pi(\tilde{t_1}, \lambda_0, \lambda_1, \beta | \vect{x})$ that do not depend on $\lambda_0$ and $\lambda_1$. Hence,
+For the first block, we start by sampling our proposal $\tilde{t_1}$ using the Gaussian random walk as done in our single-site MCMC algorithm. Then $\tilde{\lambda_0}$ and $\tilde{\lambda_1}$ can be sampled from their joint conditional conditioned on the proposed $\tilde{t_1}$, $\pi(\tilde{\lambda_0}, \tilde{\lambda_1} | \vect{x}, \tilde{t_1}, \beta)$. Recognize that the non-normalized joint conditional can be found by omitting all multiplicative factors from $\pi(\tilde{t_1}, \tilde{\lambda_0}, \tilde{\lambda_1}, \beta | \vect{x})$ that do not depend on $\lambda_0$ and $\lambda_1$. Hence,
 
 \begin{align*}
   \pi(\lambda_0, \lambda_1 | \vect{x}, \tilde{t_1}, \beta) &\propto \lambda_0^{\tilde{y_0} + 1} \lambda_1^{\tilde{y_1} + 1} \exp\left\{-\lambda_0(t_1 - t_0) -\lambda_1(t_2 - \tilde{t_1}\right\} \\
@@ -296,7 +353,7 @@ For the first block, we start by sampling our proposal $\tilde{t_1}$ using the G
   &\Rightarrow [\lambda_0 | \vect{x}, \tilde{t_1}, \lambda_1, \beta] \indep [\lambda_1 | \vect{x}, \tilde{t_1}, \lambda_0, \beta]
 \end{align*}
 
-We can sample the joint conditional by independently sampling $\lambda_0$ and $\lambda_1$ from their full conditionals using the proposed $\tilde{t_1}$, as they both are standard distributions. The acceptance probability is expressed as:
+We can sample the joint conditional by independently sampling $\tilde{\lambda_0}$ and $\tilde{\lambda_1}$ from their full conditionals using the proposed $\tilde{t_1}$, as they both are standard distributions. The acceptance probability is expressed as:
 
 $$
   \alpha(\tilde{t_1}, \tilde{\lambda_0}, \tilde{\lambda_1} | \vect{x}, \vect{\theta}_{i-1}) = \min \left( 1, \frac{\pi(\tilde{t_1}, \tilde{\lambda_0}, \tilde{\lambda_1} | \vect{x}, \beta)}{\pi(t_1, \lambda_0, \lambda_1 | \vect{x}, \beta)} \times \frac{Q(t_1, \lambda_0, \lambda_1 | \vect{x}, \tilde{t_1}, \tilde{\lambda_0}, \tilde{\lambda_1}, \beta)}{Q(\tilde{t_1}, \tilde{\lambda_0}, \tilde{\lambda_1} | \vect{x}, t_1, \lambda_0, \lambda_1)}\right)
@@ -305,7 +362,7 @@ $$
 Since $\tilde{t_1} \indep [\tilde{\lambda_0}, \tilde{\lambda_1}]$, it follows that
 
 \begin{align*}
-  Q(\tilde{t_1}, \tilde{\lambda_0}, \tilde{\lambda_1} | \vect{x}, t_1, \lambda_0, \lambda_1) &= Q(\tilde{\lambda_0}, \tilde{\lambda_1} | \tilde{t_1}, \beta) \times Q(\tilde{t_1} | t_1, \beta) \\
+  Q(\tilde{t_1}, \tilde{\lambda_0}, \tilde{\lambda_1} | \vect{x}, t_1, \lambda_0, \lambda_1) &= Q(\tilde{\lambda_0}, \tilde{\lambda_1} | \vect{x}, \tilde{t_1}, \beta) \times Q(\tilde{t_1} | \vect{x}, t_1, \beta) \\
   &= \pi(\tilde{\lambda_0} | \vect{x}, \tilde{t_1}, \beta) \times \pi(\tilde{\lambda_1} | \vect{x}, \tilde{t_1}, \beta) \times \phi(t_1, \sigma^2_{t_1})
 \end{align*}
 $$
@@ -477,12 +534,12 @@ run_mcmc_block = function(n_iterations, x, sigma_t1, sigma_beta, t1_start, lambd
 We test it below:
 
 ```{R}
-n_iterations = 10000
+n_iterations = 40000
 x = coal$date
 
 # Tuning parameters
-sigma_t1 = 3.5
-sigma_beta = 3
+sigma_t1 = 10
+sigma_beta = 10
 
 # Model parameters:
 lambda0_start = 5
@@ -497,19 +554,19 @@ sprintf("Acceptance rate for t_1: %f", length(result$t1_accepted[result$t1_accep
 
 ```{R}
 t0 = x[1]
-t1 = mean(result$t1)
+t1 = mean(result[4000:nrow(result),]$t1)
 t2 = tail(x, n=1)
-lambda0 = mean(result$lambda0)
-lambda1 = mean(result$lambda1)
+lambda0 = mean(result[4000:nrow(result),]$lambda0)
+lambda1 = mean(result[4000:nrow(result),]$lambda1)
 
 y0 = 0
 y1 = lambda0 * (t1 - t0)
 y2 = y1 + lambda1 * (t2 - t1)
 
 ggplot() +
-  geom_point(data=coal_by_year, aes(x=year, y=cum_n, group=1)) +
-  geom_segment(aes(x=t0, y=y0, xend=t1, yend=y1)) +
-  geom_segment(aes(x=t1, y=y1, xend=t2, yend=y2)) +
+  geom_point(data=coal_by_year, aes(x=year, y=cum_n, group=1, colour="data")) +
+  geom_segment(aes(x=t0, y=y0, xend=t1, yend=y1, colour="estimate")) +
+  geom_segment(aes(x=t1, y=y1, xend=t2, yend=y2, colour="estimate")) +
   ggtitle("Cumulative number of accidents in coal-mines vs year")
 
 ```
