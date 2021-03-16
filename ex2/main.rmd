@@ -571,6 +571,50 @@ ggplot() +
 
 ```
 
+# Problem B: INLA for Gaussian Data
+
+```{R}
+# Plot gaussian data
+
+gaussian_data = read.delim("Gaussiandata.txt")
+y = gaussian_data[,1]
+t = seq(from=1, to=length(y), by=1)
+
+plot(t, y)
 
 
+```
+## 1:
 
+Given the vector of linear predictors $\boldsymbol\eta=(\eta_1,\ldots,\eta_T)$
+
+In the case above T = 20
+
+The observations $y_t$ are independent and Gaussian distributed with mean $\eta_t$ and known unit variance:
+
+$$
+  y_t \mid \eta_t \sim \mathcal{N}(\eta_t,1)\quad, for \space t = 1, \space ..., \space T
+$$
+The linear predictor $\eta_t$ for time $t$ is $\eta_t = f_t$
+
+A second order random walk model as prior distribution for the vector $\mathbf{f}=(f_1,\ldots,f_T)$ is
+
+$$
+  \pi(\mathbf{f}\mid\theta) \propto \theta^{(T-2)/2} \text{exp}\Big\{-\frac{\theta}{2} \sum_{t=3}^T (f_t-2f_{t-1}+f_{t-2}^2)^2 \Big\}=\mathcal{N}(\mathbf{0},\mathbf{Q}(\theta)^{-1}).
+$$
+
+$\mathbf{Q}$ is the precision matrix and the precision parameter $\phi$ controls the smoothness of the vector f. Choosing a prior distribution for \phi as the Gamma distribution with parameters 1 and 1.
+
+This model could also be written as a hierarchichal model as:
+$$
+  \begin{aligned}
+    \mathbf{y}\mid\mathbf{f} &\sim \prod_{t=1}^T P(y_t\mid \eta_t) \\
+    \mathbf{f}\mid\theta &\sim \pi(\mathbf{f}\mid\theta) = \mathcal{N}(\mathbf{0},\mathbf{Q}(\theta)^{-1}) \\
+    \theta &\sim Gamma(1,1)
+  \end{aligned}
+$$
+The first line is the probability of $\mathbf{y}=(y_1,\ldots,y_T)$, the second line is the prior of the latent field, while the third line is the prior of the hyperparameter $\eta_t$.
+
+This model is a latent Gaussian model, because 
+
+INLA could be used to estimate the parameters because the model is latent gausssian where each data point $y_t$ only depends on one element of $f_t$ in the latent field.
