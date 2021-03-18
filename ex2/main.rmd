@@ -2,13 +2,13 @@
 --- 
 title: 'TMA4300 Computer Intensive Statistical Methods Exercise 2, Spring 2021'
 output:
+  pdf_document:
+    toc: no
+    toc_depth: '2'
   html_document:
     toc: yes
     toc_depth: 2
     toc_float: yes
-  pdf_document:
-    toc: no
-    toc_depth: '2'
 date: "`r format(Sys.time(), '%d.%m.%Y')`"
 subtitle: 'Group members: Eide, Jonathan and Lima-Eriksen, Leik'
 ---
@@ -615,7 +615,7 @@ ggarrange(
   ncol=2, nrow=1)
 ```
 
-Up until now, the only marginal posterior we have been plotting is that of $t_1$. Below, all marginal posteriors have been plotted by using the samples obtained from the block MH algorithm with $\sigma_{t_1} = 5$ and $\sigma_\beta = 10$. Notice that for $\lambda_0$, $\lambda_1$ and $\beta$, we can find the estimated marginal posteriors by using the means of the samples for $\vect{\theta}$ in order to obtain the corresponding theoretical distributions. Below we have plotted histograms of all the samples for each of the parameters, and then superimposed their posterior marginals obtained from standard distributions wherever applicable. Observe that the histograms matches the theoretical distributions very well. We do however have slightly biased estimates for $[\beta | \vect{x}] $ and $[\lambda_0 | \vect{x}]$. Whether this is caused by numerical issues or if it happens because the chain has not run for a long enough time has not been investigated. 
+Up until now, the only marginal posterior we have been plotting is that of $t_1$. Below, all marginal posteriors have been plotted by using the samples obtained from the block MH algorithm with $\sigma_{t_1} = 5$ and $\sigma_\beta = 10$. Notice that for $\lambda_0$, $\lambda_1$ and $\beta$, we can find the estimated marginal posteriors by using the means of the samples for $\vect{\theta}$ in order to obtain the corresponding theoretical distributions. Below we have plotted histograms of all the samples for each of the parameters, and then superimposed their posterior marginals obtained from standard distributions wherever applicable. Observe that the histograms matches the theoretical distributions very well. We do however have a slightly biased estimate for $[\beta | \vect{x}] $. Whether this is caused by numerical issues or if it happens because the chain has not run for a long enough time has not been investigated. 
 
 ```{R}
 burnin = 1000
@@ -626,6 +626,7 @@ t1 = mean(results[burnin:nrow(results),]$t1)
 t2 = tail(x, n=1)
 lambda0 = mean(results[burnin:nrow(results),]$lambda0)
 lambda1 = mean(results[burnin:nrow(results),]$lambda1)
+beta = mean(results[burnin:nrow(results),]$beta)
 
 y0 = sum(x <= t1)
 y1 = sum(x > t1)
