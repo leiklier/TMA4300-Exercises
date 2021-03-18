@@ -286,7 +286,7 @@ ggarrange(ggarrange(plot.s_1, plot.s_5, ncol=2, labels=c("sigma=1", "sigma=5")),
 
 ```
 
-Above is the trace plots for the exploration of $t_1$ plotted for different values of $\sigma^2_{t_1}$. We have intentionally provided an initial value $\theta^{t_1}_0 = 1940$, since we know that this is a local maximum for $t_1$. Observe that with $\sigma_{t_1} = 1$, the algorithm gets stuck in this local maximum at $t_1 \approx 1940$ for almost over half of the time. This happens because the random walk process takes moves in quite small steps, and so the probability of taking long steps to escape the local maximum is really small. This means that the algorithm will have a really long burn-in for too low $\sigma_{t_1}$, and in the case of $\sigma_{t_1} = 1$, the burn-in was in this case around 7000 We get an improvement with increasing $\sigma_{t_1}$ as expected, and for $\sigma_{t_1} \in \{5, 10\}$ we see that the Markov Chain explores the sample space pretty well. However, with even higher values such as $\sigma_{t_1} = 20$, we get new issues. Now the sampler is proposing samples way outsides our modes, and so we get a lot of rejections. This means that it will stay at the same value for a long time before moving. It may be a bit difficult to observe in the plot above, so we have zoomed in on the traceplot for $\sigma_{t_1} \in \{5, 20\}$ in the figure below:
+Above is the trace plots for the exploration of $t_1$ plotted for different values of $\sigma^2_{t_1}$. We have intentionally provided an initial value $\theta^{t_1}_0 = 1940$, since we know that this is a local maximum for $t_1$. Observe that with $\sigma_{t_1} = 1$, the algorithm gets stuck in this local maximum at $t_1 \approx 1940$ for almost over half of the time. This happens because the random walk process takes moves in quite small steps, and so the probability of taking long steps to escape the local maximum is really small. This means that the algorithm will have a really long burn-in for too low $\sigma_{t_1}$, and in the case of $\sigma_{t_1} = 1$, the burn-in was in this case around 35 000. We get an improvement with increasing $\sigma_{t_1}$ as expected, and for $\sigma_{t_1} \in \{5, 10\}$ we see that the Markov Chain explores the sample space pretty well. However, with even higher values such as $\sigma_{t_1} = 20$, we get new issues. Now the sampler is proposing samples way outsides our modes, and so we get a lot of rejections. This means that it will stay at the same value for a long time before moving. It may be a bit difficult to observe in the plot above, so we have zoomed in on the traceplot for $\sigma_{t_1} \in \{5, 20\}$ in the figure below:
 
 ```{R}
 plot.s_5_zoomed = ggplot(data=result.s_5[10000:10500,], aes(x=iter, y=t1)) + geom_line()
@@ -294,7 +294,7 @@ plot.s_20_zoomed = ggplot(data=result.s_20[10000:10500,], aes(x=iter, y=t1)) + g
 ggarrange(plot.s_5_zoomed, plot.s_20_zoomed, ncol=2, labels=c("sigma=5", "sigma=20"))
 ```
 
-Here it is quite prominent that we have to reject up to 80 samples before we get a new accepted proposal. This makes the algorithm really inefficient, and so we know from this that $\sigma_{t_1} < 20$ in order for the algorithm to have an acceptable acceptance rate.. 
+Here it is quite prominent that we have to reject up to 50 samples before we get a new accepted proposal. This makes the algorithm really inefficient, and so we know from this that $\sigma_{t_1} < 20$ in order for the algorithm to have an acceptable acceptance rate.. 
 
 
 Below we have calculated the acceptance rates for each value of $\sigma_{t_1}$. We see that $\alpha(\tilde{t_1} | \vect{x}, \vect{\theta}_{i-1}) \notin [0.2, 0.5] \quad \forall \quad \sigma_{t_1} \in \{1, 10, 20\}$. Combined with the traceplots above, we conclude with that $\sigma_{t_1}$ gives best mixing properties for $t_1$, and is a good value to use. 
@@ -306,16 +306,35 @@ acceptances[nrow(acceptances)+1,] = c(10, length(result.s_10$t1_accepted[result.
 acceptances[nrow(acceptances)+1,] = c(20, length(result.s_20$t1_accepted[result.s_20$t1_accepted == T]) / nrow(result.s_20))
 print(acceptances)
 ```
+This can also be seen in the traceplots below. Here we see that the algorithm explores the values for $\vect{\theta}$ quite well - it does not get stuck at some maxima, and it jumps quickly between its extreme values:
+
+```{R}
+show_traceplots = function(results, text)  {
+  annotate_figure(
+  ggarrange(
+    ggarrange(
+      ggplot(data=results, aes(x=iter, y=t1)) + geom_line(),
+      ggplot(data=results, aes(x=iter, y=beta)) + geom_line(),
+    ncol=2),
+    ggarrange(
+      ggplot(data=results, aes(x=iter, y=lambda0)) + geom_line(),
+      ggplot(data=results, aes(x=iter, y=lambda1)) + geom_line(),
+    ncol=2), nrow=2),
+  top = text_grob(text))
+}
+show_traceplots(result.s_5, "Traceplots for sigma_t1 = 5")
+```
+
 It should however be noted that the choice of $\sigma_{t_1}$ should \textit{not} affect the limiting distribution, and we want to prove this. Below we have plotted the limiting distribution for the full conditional of $t_1$ with $\sigma_{t_1} \in \{5, 10\}$. We used these values because they give a high enough acceptance rate so that we do not need to run the algorithms for several minutes in order for the distributions to converge. By limiting distribution we mean the distribution we get from the samples when we neglect the samples from the burn-in period. Let the burn-in period be 3000 samples for both of them. Then the limiting distributions will be as follows:
 
 ```{R}
 burnin = 3000
-plot.s_5_hist = ggplot(data=result.s_5[burnin:nrow(result.s_5),], aes(x=t1)) + geom_density()
-plot.s_10_hist = ggplot(data=result.s_10[burnin:nrow(result.s_10),], aes(x=t1)) + geom_density()
-ggarrange(plot.s_5_hist, plot.s_10_hist, ncol=2, labels=c("sigma=5", "sigma=10"))
+ggplot() + 
+  geom_density(data=result.s_5[burnin:nrow(result.s_5),], aes(x=t1), colour="red") +
+  geom_density(data=result.s_10[burnin:nrow(result.s_10),], aes(x=t1), colour="blue")
 ```
 
-We do see some differences between these distributions, e.g. in the second-highest mode and the rightmost mode. But recall that MCMC only guarantees \textit{eventual} convergence, and therefore there will also be some small differences between the limiting distributions for different values of tuning parameters, random seeds etc. The plots above do however prove the fact that they converge to the same distributions, as they are quite similar. 
+We do see some differences between these distributions, e.g. in the second-highest mode and the leftmost mode. But recall that MCMC only guarantees _eventual_ convergence, and therefore there will also be some small differences between the limiting distributions for different values of tuning parameters, random seeds etc. The plots above do however prove the fact that they converge to the same distributions, as they are quite similar. 
 
 Now that we have evaluated burn-in, mixing properties and the fact that the choice of $\sigma_{t_1}$ does not affect the limiting distribution, we have actually left off maybe the most important question; how does the estimated model parameters match the data that we provided? In order to find an estimate of $\E[\vect{\theta} | \vect{x}]$ we would ideally have used a Maximum Likelihood estimator on the data. But since this project is all about MCMC, we have simplified the problem a bit and will assume that the ML estimate can be approximated to the sample mean for each of the model parameters. Below we have calculated these estimated and superimposed the expectation lines which ensembles the estimates on top of the cumulative data. We have used the samples obtained from using $\sigma_{t_1} = 10$.
 
@@ -324,8 +343,8 @@ burnin = 3000
 t0 = x[1]
 t1 = mean(result.s_5[burnin:nrow(result.s_5),]$t1)
 t2 = tail(x, n=1)
-lambda0 = mean(result.s_5[4000:nrow(result.s_5),]$lambda0)
-lambda1 = mean(result.s_5[4000:nrow(result.s_5),]$lambda1)
+lambda0 = mean(result.s_5[burnin:nrow(result.s_5),]$lambda0)
+lambda1 = mean(result.s_5[burnin:nrow(result.s_5),]$lambda1)
 
 y0 = 0
 y1 = lambda0 * (t1 - t0)
@@ -505,7 +524,7 @@ run_mcmc_block = function(n_iterations, x, sigma_t1, sigma_beta, t1_start, lambd
     lambda0=c(lambda0_start, rep(rep(NA, n_iterations-1))),
     lambda1=c(lambda1_start, rep(rep(NA, n_iterations-1))),
     beta=c(beta_start, rep(rep(NA, n_iterations-1))),
-    t1_accepted=c(T, rep(NA, n_iterations-1))
+    accepted=c(T, rep(NA, n_iterations-1))
   )
   
   # Storing the current parameters in a list is practical,
@@ -527,19 +546,19 @@ run_mcmc_block = function(n_iterations, x, sigma_t1, sigma_beta, t1_start, lambd
     result[i,] = curr_params
   }
   
+  result$iter = as.numeric(row.names(result))
   return(result)
 }
 ```
 
-We test it below:
+We now want to see how the algorithm performs when varying the tuning parameters $\sigma_\beta$. For simplicity, we have left $\sigma_{t_1}$ at $\sigma_{t_1} = 5$. Since we now have two random walk proposals, both $\beta$ and $\t_1$ have been plotted in trace-plots below:  
 
 ```{R}
-n_iterations = 40000
+n_iterations = 50000
 x = coal$date
 
 # Tuning parameters
-sigma_t1 = 10
-sigma_beta = 10
+sigma_t1 = 5
 
 # Model parameters:
 lambda0_start = 5
@@ -548,27 +567,96 @@ beta_start = sample_beta_fc(lambda0_start, lambda1_start)
 t1_start = 1940
 
 # Calculate
-result = run_mcmc_block(n_iterations, x, sigma_t1, sigma_beta, t1_start, lambda0_start, lambda1_start, beta_start)
-sprintf("Acceptance rate for t_1: %f", length(result$t1_accepted[result$t1_accepted == T]) / nrow(result) )
+result.sb_01 = run_mcmc_block(n_iterations, x, sigma_t1, 0.1, t1_start, lambda0_start, lambda1_start, beta_start)
+result.sb_1 = run_mcmc_block(n_iterations, x, sigma_t1, 1, t1_start, lambda0_start, lambda1_start, beta_start)
+result.sb_10 = run_mcmc_block(n_iterations, x, sigma_t1, 10, t1_start, lambda0_start, lambda1_start, beta_start)
 ```
 
 ```{R}
+annotate_figure(ggarrange(
+  ggplot(data=result.sb_01, aes(x=iter, y=t1)) + geom_line(),
+  ggplot(data=result.sb_01, aes(x=iter, y=beta)) + geom_line(),
+  ncol=2, nrow=1), 
+  top = text_grob("Traceplots with sigma_t1 = 5, sigma_beta=0.1"))
+annotate_figure(ggarrange(
+  ggplot(data=result.sb_1, aes(x=iter, y=t1)) + geom_line(),
+  ggplot(data=result.sb_1, aes(x=iter, y=beta)) + geom_line(),
+  ncol=2, nrow=1), 
+  top = text_grob("Traceplots with sigma_t1 = 5, sigma_beta=5"))
+annotate_figure(ggarrange(
+  ggplot(data=result.sb_10, aes(x=iter, y=t1)) + geom_line(),
+  ggplot(data=result.sb_10, aes(x=iter, y=beta)) + geom_line(),
+  ncol=2, nrow=1), 
+  top = text_grob("Traceplots with sigma_t1 = 5, sigma_beta=10"))
+```
+
+From the above traceplots, we see that $t_1$ is explored in a similar fashion for all choices of $\sigma_\beta$. This is to be expected, since they all use the same $\sigma_{t_1} = 5$. However, we do see that $\beta$ is explored quite slowly with $\sigma_\beta = 0.1$. In order to get an expression on why this happens, we can evaluate the acceptance rates as listed below. We see that for $\sigma_\beta = 0.1$, we get an acceptance rate above the recommended $\alpha \in [0.2, 0.5]$. In fact, the block proposal for $(\beta, \lambda_0, \lambda_0)$ probably has an acceptance rate much higher than this, since we know that the random walk proposal from the single-site MCMC had an acceptance rate around 0.3 with the same tuning parameter $\sigma_{t_1}$. In practice, it means that this second block proposal accepts the majority of the proposal samples, indicating that it takes long time for it to explore the whole sample space. Therefore, $\sigma_\beta = 0.1$ is a too low value. $\sigma_\beta = 10$ seems to be much better with acceptance rate of $0.42$, and this is the value we will use from now on.
+```{R}
+acceptances_b = data.frame("sigma_beta", "acceptance")
+acceptances_b[nrow(acceptances_b)+1,] = c(0.1, length(result.sb_01$accepted[result.sb_01$accepted == T]) / nrow(result.sb_01))
+acceptances_b[nrow(acceptances_b)+1,] = c(1, length(result.sb_1$accepted[result.sb_1$accepted == T]) / nrow(result.sb_1))
+acceptances_b[nrow(acceptances_b)+1,] = c(10, length(result.sb_10$accepted[result.sb_10$accepted == T]) / nrow(result.sb_10))
+
+print(acceptances_b)
+```
+
+We continue our evaluation by looking at all the traceplots for the parameters. These plots have been provided in the figure below. Compared to the single-site MCMC, we get pretty similar results. The main difference is that $\beta$ has more extreme samples than what we got in single-site. But in total, the mixing properties are good for them both.
+
+```{R}
+show_traceplots(result.sb_10, "Traceplots with sigma_t1 = 5, sigma_beta=10")
+```
+
+They do however differ in terms of their burn-in period. Looking at the plot below, the block MH algorithm approaches the correct distribution for $t_1$ after only a couple of samples, whereas the single-site MH algorithm uses more than 500 for its burn-in period. In our case this is not a severe difference, but in other cases we might get huge differences here which affects the efficiency a lot. 
+
+```{R}
+ggarrange(
+  ggplot(data=result.s_5[1:2000,], aes(x=iter, y=t1)) + geom_line() + ggtitle("Single-site"),
+  ggplot(data=result.sb_10[1:2000,], aes(x=iter, y=t1)) + geom_line() + ggtitle("Block"),
+  ncol=2, nrow=1)
+```
+
+Up until now, the only marginal posterior we have been plotting is that of $t_1$. Below, all marginal posteriors have been plotted by using the samples obtained from the block MH algorithm with $\sigma_{t_1} = 5$ and $\sigma_\beta = 10$. Notice that for $\lambda_0$, $\lambda_1$ and $\beta$, we can find the estimated marginal posteriors by using the means of the samples for $\vect{\theta}$ in order to obtain the corresponding theoretical distributions. Below we have plotted histograms of all the samples for each of the parameters, and then superimposed their posterior marginals obtained from standard distributions wherever applicable. Observe that the histograms matches the theoretical distributions very well. We do however have slightly biased estimates for $[\beta | \vect{x}] $ and $[\lambda_0 | \vect{x}]$. Whether this is caused by numerical issues or if it happens because the chain has not run for a long enough time has not been investigated. 
+
+```{R}
+burnin = 1000
+results = result.sb_10[burnin:nrow(result.sb_10),]
+
 t0 = x[1]
-t1 = mean(result[4000:nrow(result),]$t1)
+t1 = mean(results[burnin:nrow(results),]$t1)
 t2 = tail(x, n=1)
-lambda0 = mean(result[4000:nrow(result),]$lambda0)
-lambda1 = mean(result[4000:nrow(result),]$lambda1)
+lambda0 = mean(results[burnin:nrow(results),]$lambda0)
+lambda1 = mean(results[burnin:nrow(results),]$lambda1)
 
-y0 = 0
-y1 = lambda0 * (t1 - t0)
-y2 = y1 + lambda1 * (t2 - t1)
+y0 = sum(x <= t1)
+y1 = sum(x > t1)
+annotate_figure(
+  ggarrange(
+    ggarrange(
+      ggplot(data=results, aes(x=t1)) + geom_density(),
+      ggplot(data=results, aes(x=beta)) + geom_density() + xlim(0, 7) +
+        stat_function(fun=dinvgamma, args=list(shape=4, scale=1/(lambda0 - lambda1 + 1))),
+    ncol=2),
+    ggarrange(
+      ggplot(data=results, aes(x=lambda0)) + geom_density() +
+        stat_function(fun=dgamma, args=list(shape=y0 + 2, scale=1/(t1 - t0 + 1/beta))),
+      ggplot(data=results, aes(x=lambda1)) + geom_density() +
+        stat_function(fun=dgamma, args=list(shape=y1 + 2, scale=1/(t2 - t1 + 1/beta))),
+  ncol=2), nrow=2),
+top = text_grob("Marginal posteriors using sigma_t1=5, sigma_beta=10"))
+```
 
-ggplot() +
-  geom_point(data=coal_by_year, aes(x=year, y=cum_n, group=1, colour="data")) +
-  geom_segment(aes(x=t0, y=y0, xend=t1, yend=y1, colour="estimate")) +
-  geom_segment(aes(x=t1, y=y1, xend=t2, yend=y2, colour="estimate")) +
-  ggtitle("Cumulative number of accidents in coal-mines vs year")
+Lastly, let's look at the covariance between $\lambda_0$ and $\lambda_1$. This has been estimated below, and we see that it is approximately zero as expected. Furthermore, the estimated expected values for the marginal posteriors of the model parameters have been provided below:
 
+```{R}
+sprintf("Estimate of E[t1 | x]: %f", t1)
+sprintf("Estimate of E[lambda0 | x]: %f", lambda0)
+sprintf("Estimate of E[lambda1 | x]: %f", lambda1)
+sprintf("Estimate of E[beta | x]: %f", beta)
+```
+
+```{R}
+covariance = cov(results$lambda0, results$lambda1)
+sprintf("Covariance of lambda0 and lambda1: %f", covariance)
 ```
 
 # Problem B: INLA for Gaussian Data
