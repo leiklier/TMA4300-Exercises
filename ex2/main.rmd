@@ -45,7 +45,7 @@ library(ggpubr)
 ```
 
 
-In order to get an impression of how the data we will be modeling looks like, we start off by making a histogram with year along the $x$-axis and cumulative
+In order to get an impression of how the data we will be modeling looks like, we start off by making a plot with year along the $x$-axis and cumulative
 number of disasters along the $y$-axis. The plot has been provided in the figure below:
 
 ```{R}
@@ -57,11 +57,11 @@ ggplot(data=coal_by_year, aes(x=year, y=cum_n, group=1)) +
   ggtitle("Cumulative number of accidents in coal-mines vs year")
 ``` 
 
-Observe that between 1850 and 1890 the number of accidents per year seems to be quite constant, as the cumulative plot has a linear trend. Afterwards, we see that the trends flattens more out between 1900 and 1925. This should make sense, because advancements in the safety for the coal-miners were likely to happen at some point, which would drag this rate down. Another explanation could be a decrease in demand for coal, which would result in fewer accidents since fewer people were required to work in the coal-mines. It then increased between 1930 and 1947. This could either be because the ongoing wars required people to work under fewer safety constraints. Another reason could be that the wars increased the demand for coal, which meant that more people had to work in the mines. Both reasons would further explain why the rate fell after the wars.
+Observe that between 1850 and 1890 the number of accidents per year seems to be quite constant, as the cumulative plot has a linear trend. Afterwards, we see that the trends flattens more out between 1900 and 1925. This should make sense, because advancements in the safety for the coal-miners were likely to happen at some point, which would drag this rate down. Another explanation could be a decrease in demand for coal, which would result in fewer accidents since fewer people were required to work in the coal-mines. It then increased between 1930 and 1947. This could have happened because the ongoing wars required people to work under fewer safety constraints. Another reason could be that the wars increased the demand for coal, which meant that more people had to work in the mines. Both reasons would further explain why the rate fell after the wars.
 
-We see that the dataset has several distinct periods where each period has an approximately constant rate at which the accidents occurred. It therefore seems reasonable to assume that the coal-mining disasters
+We see that the data set has several distinct periods where each period has an approximately constant rate at which the accidents occurred. It therefore seems reasonable to assume that the coal-mining disasters
 follow an inhomogeneous Poisson process with intensity function $\lambda(t)$ (number of events per year), where we assume
-$\lambda(t)$ to be piecewise constant with $n$ breakpoints. Let $t_0$ and $t_{n+1}$ to denote the start and end times for the
+$\lambda(t)$ to be piecewise constant with $n$ breakpoints. Let $t_0$ and $t_{n+1}$ denote the start and end times for the
 data set and let $t_k; k = 1, \dots, n$ denote the breakpoints of the intensity function. Thus,
 
 $$
@@ -139,7 +139,7 @@ $$
   [\beta | \vect{x}, t_1, \lambda_0, \lambda_1] \sim \text{InvGamma}(4, 1/(1 + \lambda_0 + \lambda_1))
 $$
 
-We want to define and implement a single site MCMC algorithm for $\pi(\vect{\theta} | \vect{x})$. Since three of the full conditionals are standard, we will be using their distributions as proposals. This is known as Gibbs steps, and gives acceptance probabilities of 1. For the last full conditional, $[t_1 | \vect{x}, \lambda_0, \lambda_1, \beta]$, we will be sampling in Metropolis-Hastings (MH) steps. It can be shown that the MH algorithm converges to the target distribution regardless of the choice of proposal distribution. 
+We want to define and implement a single site MCMC algorithm for $\pi(\vect{\theta} | \vect{x})$. Since three of the full conditionals are standard, we will be using their distributions as proposals. This is known as Gibbs steps, and give acceptance probabilities of 1. For the last full conditional, $[t_1 | \vect{x}, \lambda_0, \lambda_1, \beta]$, we will be sampling in Metropolis-Hastings (MH) steps. It can be shown that the MH algorithm converges to the target distribution regardless of the choice of proposal distribution. 
 
 Define $\vect{\theta}_i$ to be the realization of our parameter vector $\vect{\theta}$ at the $i$-th MCMC step. Also, let $Q(\tilde{\theta}^j | \theta^j_{i-1}, \vect{\theta}^{-j}_{i-1})$ be the proposal distribution for the parameter $\theta^j$ at the $i$-th step. Then the acceptance probability $\alpha$ for the proposal $\tilde{\theta}^j$ at the $i$-th iteration can be found to be
 
@@ -294,10 +294,10 @@ plot.s_20_zoomed = ggplot(data=result.s_20[10000:10500,], aes(x=iter, y=t1)) + g
 ggarrange(plot.s_5_zoomed, plot.s_20_zoomed, ncol=2, labels=c("sigma=5", "sigma=20"))
 ```
 
-Here it is quite prominent that we have to reject up to 50 samples before we get a new accepted proposal. This makes the algorithm really inefficient, and so we know from this that $\sigma_{t_1} < 20$ in order for the algorithm to have an acceptable acceptance rate.. 
+Here it is quite prominent that we have to reject up to 50 samples before we get a new accepted proposal. This makes the algorithm really inefficient, and so we know from this that $\sigma_{t_1} < 20$ in order for the algorithm to have an acceptable acceptance rate.
 
 
-Below we have calculated the acceptance rates for each value of $\sigma_{t_1}$. We see that $\alpha(\tilde{t_1} | \vect{x}, \vect{\theta}_{i-1}) \notin [0.2, 0.5] \quad \forall \quad \sigma_{t_1} \in \{1, 10, 20\}$. Combined with the traceplots above, we conclude with that $\sigma_{t_1}$ gives best mixing properties for $t_1$, and is a good value to use. 
+Below we have calculated the acceptance rates for each value of $\sigma_{t_1}$. We see that $\alpha(\tilde{t_1} | \vect{x}, \vect{\theta}_{i-1}) \notin [0.2, 0.5] \quad \forall \quad \sigma_{t_1} \in \{1, 10, 20\}$. Combined with the traceplots above, we conclude with that $\sigma_{t_1} = 5$ gives best mixing properties for $t_1$, and is a good value to use. 
 ```{R}
 acceptances = data.frame("sigma", "acceptance")
 acceptances[nrow(acceptances)+1,] = c(1, length(result.s_1$t1_accepted[result.s_1$t1_accepted == T]) / nrow(result.s_1))
@@ -325,16 +325,22 @@ show_traceplots = function(results, text)  {
 show_traceplots(result.s_5, "Traceplots for sigma_t1 = 5")
 ```
 
-It should however be noted that the choice of $\sigma_{t_1}$ should \textit{not} affect the limiting distribution, and we want to prove this. Below we have plotted the limiting distribution for the full conditional of $t_1$ with $\sigma_{t_1} \in \{5, 10\}$. We used these values because they give a high enough acceptance rate so that we do not need to run the algorithms for several minutes in order for the distributions to converge. By limiting distribution we mean the distribution we get from the samples when we neglect the samples from the burn-in period. Let the burn-in period be 3000 samples for both of them. Then the limiting distributions will be as follows:
+It should however be noted that the choice of $\sigma_{t_1}$ should _not_ affect the limiting distribution, and we want to prove this. Below we have plotted the limiting distribution for the full conditional of $t_1$ with $\sigma_{t_1} \in \{5, 10\}$. We used these values because they give a high enough acceptance rate so that we do not need to run the algorithms for several minutes in order for the distributions to converge. By limiting distribution we mean the distribution we get from the samples when we neglect the samples from the burn-in period. Let the burn-in period be 3000 samples for both of them. Then the limiting distributions will be as follows:
 
 ```{R}
 burnin = 3000
-ggplot() + 
-  geom_density(data=result.s_5[burnin:nrow(result.s_5),], aes(x=t1), colour="red") +
-  geom_density(data=result.s_10[burnin:nrow(result.s_10),], aes(x=t1), colour="blue")
+df.s_5 = data.frame(
+  name=c("sigma_t1 = 5"), 
+  values=c(result.s_5[burnin:nrow(result.s_5),]$t1)
+)
+df.s_10 = data.frame(
+  name=c("sigma_t1 = 10"), 
+  values=c(result.s_10[burnin:nrow(result.s_10),]$t1)
+)
+ggplot() + geom_density(data=df.s_5, aes(x=values, colour=name)) + geom_density(data=df.s_10, aes(x=values, colour=name))
 ```
 
-We do see some differences between these distributions, e.g. in the second-highest mode and the leftmost mode. But recall that MCMC only guarantees _eventual_ convergence, and therefore there will also be some small differences between the limiting distributions for different values of tuning parameters, random seeds etc. The plots above do however prove the fact that they converge to the same distributions, as they are quite similar. 
+We do see some differences between these distributions, e.g. in the second-highest mode and the leftmost mode. But recall that MCMC only guarantees _eventual_ convergence, and therefore there will also be some minor differences between the limiting distributions for different values of tuning parameters, random seeds etc with $n < \infty$. The plot above does however prove the fact that they converge to the same distributions, as they are quite similar. 
 
 Now that we have evaluated burn-in, mixing properties and the fact that the choice of $\sigma_{t_1}$ does not affect the limiting distribution, we have actually left off maybe the most important question; how does the estimated model parameters match the data that we provided? In order to find an estimate of $\E[\vect{\theta} | \vect{x}]$ we would ideally have used a Maximum Likelihood estimator on the data. But since this project is all about MCMC, we have simplified the problem a bit and will assume that the ML estimate can be approximated to the sample mean for each of the model parameters. Below we have calculated these estimated and superimposed the expectation lines which ensembles the estimates on top of the cumulative data. We have used the samples obtained from using $\sigma_{t_1} = 10$.
 
