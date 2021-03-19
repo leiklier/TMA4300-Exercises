@@ -562,7 +562,7 @@ This model is a latent Gaussian model, because the latent field is Gaussian dist
 
 INLA could be used to estimate the parameters because the model is latent gausssian where each data point $y_t$ only depends on one element of $f_t$ in the latent field.
 
-# 2
+## 2
 
 
 Implementing a Gibbs sampling algorithm for $f(\boldsymbol\eta,\theta\mid \mathbf{y})$ with a posterior as:
@@ -807,5 +807,75 @@ plot(eta.grid, etai_y, ylab = "pi", xlab = "eta_10")
 
 ```
 
- Comparing the approximation for $\pi(\eta_n\mid y)$ with the estimation obtained in point 1) via Gibbs sampling, the graph looks normal with a small positive mean for both of the graphs.
+ Comparing the approximation for $\pi(\eta_n\mid y)$ with the estimation obtained in point 2) via Gibbs sampling, both graphs looks normal with a small positive mean. 
+
+
+## 5
+
+We want to use the inla() function in R to implement the same model as previous. 
+
+```{R}
+library(INLA)
+
+T = length(y)
+Ts = seq(from = 1, to = T, by = 1)
+data = data.frame(y = y, t = Ts)
+
+thetahyper = list(theta = list(prior = "log.gamma", param = c(1, 1)))
+formula = y ~ f(Ts,
+                model = "rw2",
+                hyper = thetahyper,
+                constr = FALSE) - 1
+
+#Calculate
+result_inla = INLA::inla(formula = formula,
+                         family = "gaussian",
+                         data = data,
+                         control.family = list(hyper=list(prec =list(initial=0,fixed=TRUE))))
+
+```
+The plot shows the estimated smooth effect using INLA (red line) and the smooth effect calculated in 2) using MCMC (Black line). As one could see, the lines seems to overlap and the estimates are very similar.
+
+```{R}
+
+
+plot(result_inla$summary.random$Ts$mean,
+     xlab="t",
+     ylab="y",
+     type="l",
+     col="red",
+     main="R-INLA estimated smooth effect compared to MCMC",
+     
+     )
+lines(Ts, f.mean)
+
+```
+The figure below shows the R-INLA estimate of $\pi(\theta\mid y)$ which is also similar to the estimates in task 2 and 3. 
+
+```{R}
+
+# marginal hyperparam
+INLAtheta = inla.smarginal(result_inla$marginals.hyperpar[[1]])
+plot(INLAtheta,
+     type="l",
+     main="R-INLA approximation for hyper marginal",
+     xlab="theta",
+     ylab="density",
+     xlim=c(0,6))
+
+
+
+```
+
+The figure below shows the R-INLA estimate of $\pi(\eta_{10}\mid y)$, and is also very similar to the estimates in 3 and 4.
+
+```{R}
+# marginal eta_10
+plot(result_inla$marginals.random$Ts$index.10,
+     type="l",
+     main="R-INLA posterior for eta_10",
+     xlab="eta_10",
+     xlim=c(-4,4),
+     ylab="density")
+```
 
