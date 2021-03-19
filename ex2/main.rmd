@@ -708,5 +708,67 @@ The histogram of theta samples shows an estimate for $\pi(\theta\mid\mathbf{y})$
 
 In the Gibbs MCMC plot the data from Gaussian Data are plotted as circles. Thee linearly interpolated posterior means are shown as a solid line, while the bounds of the 95% confidence interval are plotted as the dotted lines. The Gibbs MCMC is sampled with 10.000 samples and a burnin-period at 100 samples.
 
+## 3
+
+Another method to approximate $\pi(\theta\mid\mathbf{y})$ is using the INLA schemes. In this task the following starting point is used:
+$$
+\pi(\theta|\mathrm{x}) \propto \frac{\pi(\mathrm{y}|\mathrm{x},\theta)\pi(\mathrm{x}|\theta)\pi(\theta)}{\pi(\mathrm{x}|\theta,\mathrm{y})}
+$$
+Since the likelihood is Gaussian then also $\pi(\eta \mid \theta, \mathbf{y})$ is Gaussian.
+
+An overview of the distributions are shown below:
+
+- $\pi(\mathrm{y}|\mathrm{x},\theta)=\pi(\mathrm{y}|\mathrm{x})\sim\mathcal{N}(\mathrm{x},\mathrm{I})$
+- $\pi(\mathrm{x}|\theta) \sim \mathcal{N}(0,\mathrm{Q}(\theta))$
+- $\pi(\theta) \sim Gamma(1,1)$
+- $\pi(\mathrm{x}|\theta,\mathrm{y})\sim\mathcal{N}(\mathrm{\mu},\mathrm{\Sigma})$
+
+Earlier we found that $\pi(\boldsymbol\eta\mid\theta,\mathbf{y}) \propto \mathcal{N}((\mathbf{Q}+\mathbf{I})^{-1}\mathbf{y},(\mathbf{Q}+\mathbf{I})^{-1})$, therefore we can calculate:
+$$
+  \begin{aligned}
+    \pi(\theta\mid\mathbf{y}) &\propto \frac{\pi(\mathbf{y}\mid\boldsymbol\eta,\theta)\pi(\boldsymbol\eta\mid\theta)\pi(\theta)}{\pi(\boldsymbol\eta\mid\theta,\mathbf{y})} \\
+    &\propto \frac{\exp(-\frac{1}{2}(\mathbf{y}-\boldsymbol\eta)^T(\mathbf{y}-\boldsymbol\eta))\theta^{(T-2)/2}\exp(-\frac{1}{2}\boldsymbol\eta^T\mathbf{Q}\boldsymbol\eta)\exp(-\theta)}{|\mathbf{Q}+\mathbf{I}|^{1/2}\exp(-\frac{1}{2}(\boldsymbol\eta-(\mathbf{Q}+\mathbf{I})^{-1}\mathbf{y})^T(\mathbf{Q}+\mathbf{I})(\boldsymbol\eta-(\mathbf{Q}+\mathbf{I})^{-1}\mathbf{y}))} \\
+    &= \theta^{(T-2)/2}|\mathbf{Q}+\mathbf{I}|^{-1/2}\exp\bigg(-\theta-\frac{1}{2}\mathbf{y}^T\big(\mathbf{I}-(\mathbf{Q}+\mathbf{I})^{-1}\big)\mathbf{y}\bigg)
+  \end{aligned}\quad,
+$$
 
 
+This will be approximated using a grid of value between 0 and 6 and uses 5 to construct an approximation of $\pi(\theta\mid\mathbf{y})$. A function calculating the posterior marginal is shown below:
+
+```{R}
+calc_pi_theta_y = function(theta.grid, y) {
+  # Calculate pi(theta|y) for each theta in the grid
+  pi = rep(0,length(theta.grid))
+  T = length(y)
+  
+  for (i in 1:length(theta.grid)) {
+    theta = theta.grid[i]
+    deter = det(solve(Q*theta+diag(T))) #Uses same Q as earlier
+    pi[i] = theta^(T/2-1) * exp(-theta) * deter^(0.5) * exp(-0.5 * t(y) %*% (diag(T)-solve(Q*theta+diag(T))) %*% y)
+  }
+  return(pi)
+}
+
+theta_grid = seq(from = 0, to = 9, by = 0.1)
+pi = calc_pi_theta_y(theta_grid, y) #Calculate values for pi(theta|y)
+plot(theta_grid, pi, xlab = bquote(theta), ylab = "pi")
+
+```
+
+The histogram of using Gibbs-MCM posterior marginal for theta in task 2 and the plot of the MCMC using INLA-schemes seems to match good.
+
+
+## 4
+
+We want to implement the next step in the INLA scheme, the  approximation of the marginal
+posterior for the smooth effect, $\pi(\eta_i\mid y)$.
+
+We have
+$$
+\begin{aligned}
+    \pi(\eta_i\mid\mathbf{y}) &= \int             \pi(\eta_i\mid\mathbf{y},\theta)\pi(\theta\mid\mathbf{y})d\theta \\
+    &\approx \sum_{\theta_k\in\boldsymbol\theta_{\text{grid}}}                 \pi(\eta_i\mid\mathbf{y},\theta_k)\pi(\theta_k\mid\mathbf{y}) \Delta
+\end{aligned} \quad,
+$$
+
+where $\boldsymbol\theta_{\text{grid}}$ is the grid of theta values from point 3, and $\Delta$ is the step size between the values in the grid. 
