@@ -760,7 +760,7 @@ The histogram of using Gibbs-MCM posterior marginal for theta in task 2 and the 
 
 ## 4
 
-We want to implement the next step in the INLA scheme, the  approximation of the marginal
+We want to implement the next step in the INLA scheme, the approximation of the marginal
 posterior for the smooth effect, $\pi(\eta_i\mid y)$.
 
 We have
@@ -771,4 +771,41 @@ $$
 \end{aligned} \quad,
 $$
 
-where $\boldsymbol\theta_{\text{grid}}$ is the grid of theta values from point 3, and $\Delta$ is the step size between the values in the grid. 
+where $\boldsymbol\theta_{\text{grid}}$ is the grid of theta values from task 3, and $\Delta$ is the step size between the grid-values. We assume that $\pi(\eta_i\mid\mathbf{y},\theta)\sim \mathcal{N}([\mathbf{A}\mathbf{y}]_i,\mathbf{A}_{ii})$, becuase $\pi(\boldsymbol\eta\mid\theta,\mathbf{y}) \propto \mathcal{N}((\mathbf{Q}+\mathbf{I})^{-1}\mathbf{y},(\mathbf{Q}+\mathbf{I})^{-1})$ where $\mathbf{A}=(\mathbf{Q}+\mathbf{I})^{-1}$.
+
+```{R}
+calc_etai_y_theta = function(etai.grid, theta, y) {
+  # Calculate pi(eta_10|y,theta_k) 
+  T = length(y)
+  i = 10
+  A = solve(Q*theta + diag(T)) #Same Q as earlier
+  mean = (A %*% y)[i]
+  var = A[i, i]
+  pi = dnorm(etai.grid, mean = mean, sd= sqrt(var))
+  return (pi) #Vector for each eta_i in the grid
+}
+
+calc_pi_etai_y = function(theta.grid, eta.grid, y) {
+  #Calculate pi(eta_10|y)
+  sums = rep(0, length(eta.grid)) # Store approximations
+  step = theta.grid[2]-theta.grid[1] # Step size, assumed as diff between the two first elements
+  theta_y = calc_pi_theta_y(theta.grid, y) # pi(theta|y) for each theta in the grid
+  
+  for (i in (1:length(theta.grid))) {
+    # Add the terms for theta[i] for each iteration
+    sums = sums + calc_etai_y_theta(eta.grid, theta.grid[i], y)*theta_y[i]*step
+  }
+  return (sums)
+}
+
+theta_grid = seq(from = 0, to = 9, by = 0.1)
+eta.grid = seq(-2, 2, 0.01)
+etai_y = calc_pi_etai_y(theta_grid, eta.grid, y) # Calculate grid
+
+
+plot(eta.grid, etai_y, ylab = "pi", xlab = "eta_10")
+
+```
+
+ Comparing the approximation for $\pi(\eta_n\mid y)$ with the estimation obtained in point 1) via Gibbs sampling, the graph looks normal with a small positive mean for both of the graphs.
+
