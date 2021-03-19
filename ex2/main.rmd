@@ -2,13 +2,13 @@
 --- 
 title: 'TMA4300 Computer Intensive Statistical Methods Exercise 2, Spring 2021'
 output:
-  pdf_document:
-    toc: no
-    toc_depth: '2'
   html_document:
     toc: yes
     toc_depth: 2
     toc_float: yes
+  pdf_document:
+    toc: no
+    toc_depth: '2'
 date: "`r format(Sys.time(), '%d.%m.%Y')`"
 subtitle: 'Group members: Eide, Jonathan and Lima-Eriksen, Leik'
 ---
@@ -661,7 +661,7 @@ sprintf("Covariance of lambda0 and lambda1: %f", covariance)
 ```
 
 # Problem B: INLA for Gaussian Data
-
+The plot below shows Gaussiandata.txt. The goal of this task is to implement INLA for a model with gaussian likelihood where computations can be done exactly.
 ```{R}
 # Plot gaussian data
 
@@ -675,15 +675,12 @@ plot(t, y)
 ```
 ## 1:
 
-Given the vector of linear predictors $\boldsymbol\eta=(\eta_1,\ldots,\eta_T)$
-
-In the case above T = 20
-
-The observations $y_t$ are independent and Gaussian distributed with mean $\eta_t$ and known unit variance:
+Given the vector of linear predictors $\boldsymbol\eta=(\eta_1,\ldots,\eta_T)$, the observations $y_t$ are independent and Gaussian distributed with mean $\eta_t$ and known unit variance:
 
 $$
   y_t \mid \eta_t \sim \mathcal{N}(\eta_t,1)\quad, for \space t = 1, \space ..., \space T
 $$
+
 The linear predictor $\eta_t$ for time $t$ is $\eta_t = f_t$
 
 A second order random walk model as prior distribution for the vector $\mathbf{f}=(f_1,\ldots,f_T)$ is
@@ -706,10 +703,11 @@ The first line is the probability of $\mathbf{y}=(y_1,\ldots,y_T)$, the second l
 
 This model is a latent Gaussian model, because the latent field is Gaussian distributed.
 
-INLA could be used to estimate the parameters because the model is latent gausssian where each data point $y_t$ only depends on one element of $f_t$ in the latent field.
+INLA could be used to estimate the parameters because the model is latent gausssian, where each data point $y_t$ only depends on one element of $f_t$ in the latent field, and because the precision matrix of the GMRF is sparse.
+
+
 
 ## 2
-
 
 Implementing a Gibbs sampling algorithm for $f(\boldsymbol\eta,\theta\mid \mathbf{y})$ with a posterior as:
 
@@ -745,11 +743,11 @@ library(Matrix)
 
 make.Q = function(T) {
   # Function to construct precision matrix
-  diags = list(rep(6,T), rep(-4,T-1), rep(1,T-2))
-  Q = as.matrix(bandSparse(T, T, k=c(0:2), diag=diags, symm=T))
-  Q[1,1] = Q[T,T] = 1
-  Q[1,2] = Q[2,1] = Q[T,T-1] = Q[T-1,T] = -2
-  Q[2,2] = Q[T-1,T-1] = 5
+  diagonals = list(rep(6, T), rep(-4, T-1), rep(1, T-2))
+  Q = as.matrix(bandSparse(T, T, k=c(0:2), diag=diagonals, symm=T))
+  Q[1, 1] = Q[T, T] = 1
+  Q[1, 2] = Q[2, 1] = Q[T, T-1] = Q[T-1, T] = -2
+  Q[2, 2] = Q[T-1, T-1] = 5
   return (Q)
 }
 
@@ -758,7 +756,7 @@ Q = make.Q(20)
 #print(make.Q(20))
 
 ```
-The following function is implemented as a Gibbs sampler for $\pi(x,\theta|y)$:
+The following function is implemented as a Gibbs sampler for $\pi(x,\theta|y)$. A burnin of 100 is chosen as this gives satisfying results.
 
 ```{R}
 library(mvtnorm)
@@ -767,11 +765,13 @@ library(MASS)
 set.seed(0)
 
 sample.gibbs = function(n, theta.init, f.init, y) {
+  #Create n-samples with gibbs-sampling
+
   T = length(y)
   x = rep(0, T) #initial x
   
   # Create empty vectors
-  theta.vec = rep(0,n)
+  theta.vec = rep(0, n)
   f.matrix = matrix(1:T*n, nrow = T, ncol = n)
 
   theta.vec[1] = theta.init #Initialize vector by changing first element
@@ -779,7 +779,7 @@ sample.gibbs = function(n, theta.init, f.init, y) {
   
   #Iterate MCMC loop
   for (i in 2:n) {
-    # Update theta
+    # Update theta and sample
     sum = 0
     for(t in 3:T) {
       sum = sum + (f.matrix[t, i-1] - 2*f.matrix[t-1, i-1] + f.matrix[t-2, i-1])^2
@@ -792,7 +792,8 @@ sample.gibbs = function(n, theta.init, f.init, y) {
     f.matrix[, i] = c(rmvnorm(1,mean=mu, sigma=Sigma))
   }
 
-  return(rbind(f.matrix, theta.vec)) # Return matrix with f and theta
+  # Return matrix with f and theta
+  return(rbind(f.matrix, theta.vec)) 
 
 }
 
@@ -808,7 +809,9 @@ samples.theta = samples[length(samples[,1]), -c(1:100)] # theta samples, excludi
 samples.f = samples[-length(samples[,1]), -c(1:100)] # Extracting the f samples, excluding the first 100 values as burnin
 
 # Estimate for the posterior marginal for theta
-truehist(samples.theta, xlab = "theta", main = "Histogram of theta samples, Gibbs-MCM posterior marginal for theta")
+truehist(samples.theta,
+         xlab = "theta",
+         main = "Histogram of theta samples, Gibbs-MCM posterior marginal for theta")
 
 
 
@@ -820,39 +823,41 @@ truehist(f_10, xlab = "x_10", main = "Gibbs-MCMC posterior marginal for x_10")
 
 ```
 
-Next we wish to calculate the 95% confidence bounds
+Next we calculate the 95% confidence bounds
 
 ```{R}
 # latent field x
 f.mean = rep(0,T)
 f.var = rep(0,T)
-conf.upper = rep(0,T)
-conf.lower = rep(0,T)
+conf_interval.upper = rep(0,T)
+conf_interval.lower = rep(0,T)
 # Calculate the mean and variance
 for(t in 1:T) {
   f.mean[t] = mean(samples.f[t,])
   f.var[t] = var(samples.f[t,])
 }
-# Calculate 95% confidence bounds
+# Calculate 95% confidence bounds of smooth effect
+zigma = qnorm(0.025)
 for(t in 1:T) {
-  z = qnorm(0.025)
-  conf.upper[t] = f.mean[t] + z * sqrt(f.var[t])
-  conf.lower[t] = f.mean[t] - z * sqrt(f.var[t])
+  conf_interval.upper[t] = f.mean[t]+zigma*sqrt(f.var[t])
+  conf_interval.lower[t] = f.mean[t]-zigma*sqrt(f.var[t])
 }
 
 Ts = seq(T)
-plot(Ts,y,
-main="Gibbs-MCMC inference for the latent field",
-xlab="t", ylab="value")
+plot(Ts,
+     y,
+     main="Gibbs-MCMC inference for the latent field",
+     xlab="t", ylab="value")
+
 lines(Ts, f.mean)
-lines(Ts, conf.lower, lty=2)
-lines(Ts, conf.upper, lty=2)
+lines(Ts, conf_interval.lower, lty=2)
+lines(Ts, conf_interval.upper, lty=2)
 
 ```
 
 The histogram of theta samples shows an estimate for $\pi(\theta\mid\mathbf{y})$. The second histogram of $eta_{10}$ samples is an estimate of $\pi(\eta_{10}\mid\mathbf{y})$.
 
-In the Gibbs MCMC plot the data from Gaussian Data are plotted as circles. Thee linearly interpolated posterior means are shown as a solid line, while the bounds of the 95% confidence interval are plotted as the dotted lines. The Gibbs MCMC is sampled with 10.000 samples and a burnin-period at 100 samples.
+In the Gibbs MCMC plot the data from Gaussian Data are plotted as circles. Thee linearly interpolated posterior means are shown as a solid line, while the bounds of the 95% confidence interval are plotted as the dotted lines. The Gibbs MCMC is sampled with 10.000 samples and a burnin-period of 100 samples.
 
 ## 3
 
@@ -884,9 +889,10 @@ This will be approximated using a grid of value between 0 and 6 and uses 5 to co
 ```{R}
 calc_pi_theta_y = function(theta.grid, y) {
   # Calculate pi(theta|y) for each theta in the grid
-  pi = rep(0,length(theta.grid))
+  pi = rep(0,length(theta.grid)) #Vector to store pi
   T = length(y)
   
+  #Iterate and calculate values for pi
   for (i in 1:length(theta.grid)) {
     theta = theta.grid[i]
     deter = det(solve(Q*theta+diag(T))) #Uses same Q as earlier
@@ -897,11 +903,17 @@ calc_pi_theta_y = function(theta.grid, y) {
 
 theta_grid = seq(from = 0, to = 9, by = 0.1)
 pi = calc_pi_theta_y(theta_grid, y) #Calculate values for pi(theta|y)
-plot(theta_grid, pi, xlab = bquote(theta), ylab = "pi")
+plot(theta_grid,
+     pi,
+     xlab = "theta",
+     ylab = "pi",
+     type = "l",
+     main="INLA-inference for hyper posterior",
+     )
 
 ```
 
-The histogram of using Gibbs-MCM posterior marginal for theta in task 2 and the plot of the MCMC using INLA-schemes seems to match good.
+The histogram of using Gibbs-MCMC posterior marginal for theta in task 2 and the plot of the MCMC using INLA-schemes seems to match good.
 
 
 ## 4
@@ -917,21 +929,21 @@ $$
 \end{aligned} \quad,
 $$
 
-where $\boldsymbol\theta_{\text{grid}}$ is the grid of theta values from task 3, and $\Delta$ is the step size between the grid-values. We assume that $\pi(\eta_i\mid\mathbf{y},\theta)\sim \mathcal{N}([\mathbf{A}\mathbf{y}]_i,\mathbf{A}_{ii})$, becuase $\pi(\boldsymbol\eta\mid\theta,\mathbf{y}) \propto \mathcal{N}((\mathbf{Q}+\mathbf{I})^{-1}\mathbf{y},(\mathbf{Q}+\mathbf{I})^{-1})$ where $\mathbf{A}=(\mathbf{Q}+\mathbf{I})^{-1}$.
+where $\boldsymbol\theta_{\text{grid}}$ is the grid of theta values from task 3, and $\Delta$ is the step size between the grid-values. We assume that $\pi(\eta_i\mid\mathbf{y},\theta)\sim \mathcal{N}([\mathbf{A}\mathbf{y}]_i,\mathbf{A}_{ii})$, because $\pi(\boldsymbol\eta\mid\theta,\mathbf{y}) \propto \mathcal{N}((\mathbf{Q}+\mathbf{I})^{-1}\mathbf{y},(\mathbf{Q}+\mathbf{I})^{-1})$ where $\mathbf{A}=(\mathbf{Q}+\mathbf{I})^{-1}$.
 
 ```{R}
-calc_etai_y_theta = function(etai.grid, theta, y) {
+calc_eta_i_y_theta = function(eta_i.grid, theta, y) {
   # Calculate pi(eta_10|y,theta_k) 
   T = length(y)
   i = 10
   A = solve(Q*theta + diag(T)) #Same Q as earlier
   mean = (A %*% y)[i]
   var = A[i, i]
-  pi = dnorm(etai.grid, mean = mean, sd= sqrt(var))
+  pi = dnorm(eta_i.grid, mean = mean, sd= sqrt(var))
   return (pi) #Vector for each eta_i in the grid
 }
 
-calc_pi_etai_y = function(theta.grid, eta.grid, y) {
+calc_pi_eta_i_y = function(theta.grid, eta.grid, y) {
   #Calculate pi(eta_10|y)
   sums = rep(0, length(eta.grid)) # Store approximations
   step = theta.grid[2]-theta.grid[1] # Step size, assumed as diff between the two first elements
@@ -939,17 +951,23 @@ calc_pi_etai_y = function(theta.grid, eta.grid, y) {
   
   for (i in (1:length(theta.grid))) {
     # Add the terms for theta[i] for each iteration
-    sums = sums + calc_etai_y_theta(eta.grid, theta.grid[i], y)*theta_y[i]*step
+    sums = sums + calc_eta_i_y_theta(eta.grid, theta.grid[i], y)*theta_y[i]*step
   }
   return (sums)
 }
 
 theta_grid = seq(from = 0, to = 9, by = 0.1)
 eta.grid = seq(-2, 2, 0.01)
-etai_y = calc_pi_etai_y(theta_grid, eta.grid, y) # Calculate grid
+eta_i_y = calc_pi_eta_i_y(theta_grid, eta.grid, y) # Calculate grid
 
 
-plot(eta.grid, etai_y, ylab = "pi", xlab = "eta_10")
+plot(eta.grid,
+     eta_i_y,
+     ylab = "pi",
+     xlab = "eta_10",
+     type = "l",
+     main = "INLA posterior conditioned on theta"
+     )
 
 ```
 
@@ -963,6 +981,7 @@ We want to use the inla() function in R to implement the same model as previous.
 ```{R}
 library(INLA)
 
+#Initialize values
 T = length(y)
 Ts = seq(from = 1, to = T, by = 1)
 data = data.frame(y = y, t = Ts)
