@@ -546,7 +546,7 @@ $$
   \pi(\mathbf{f}\mid\theta) \propto \theta^{(T-2)/2} \text{exp}\Big\{-\frac{\theta}{2} \sum_{t=3}^T (f_t-2f_{t-1}+f_{t-2}^2)^2 \Big\}=\mathcal{N}(\mathbf{0},\mathbf{Q}(\theta)^{-1}).
 $$
 
-$\mathbf{Q}$ is the precision matrix and the precision parameter $\phi$ controls the smoothness of the vector f. Choosing a prior distribution for \phi as the Gamma distribution with parameters 1 and 1.
+$\mathbf{Q}$ is the precision matrix and the precision parameter $\phi$ controls the smoothness of the vector f. Choosing a prior distribution for $\phi$ as the Gamma distribution with parameters 1 and 1.
 
 This model could also be written as a hierarchichal model as:
 $$
@@ -558,6 +558,155 @@ $$
 $$
 The first line is the probability of $\mathbf{y}=(y_1,\ldots,y_T)$, the second line is the prior of the latent field, while the third line is the prior of the hyperparameter $\eta_t$.
 
-This model is a latent Gaussian model, because 
+This model is a latent Gaussian model, because the latent field is Gaussian distributed.
 
 INLA could be used to estimate the parameters because the model is latent gausssian where each data point $y_t$ only depends on one element of $f_t$ in the latent field.
+
+# 2
+
+
+Implementing a Gibbs sampling algorithm for $f(\boldsymbol\eta,\theta\mid \mathbf{y})$ with a posterior as:
+
+
+$$
+  \pi(\boldsymbol\eta,\theta\mid\mathbf{y}) \propto \pi(\theta) \pi(\boldsymbol\eta\mid\theta) \prod_{t=1}^T\pi(y_t\mid\eta_t,\theta) \propto \frac{\theta^{(T-2)/2}}{(2\pi)^{T/2}} \exp\bigg\{-\theta -\frac{\theta}{2}\sum_{t=3}^T(\eta_t-2\eta_{t-1}+\eta_{t-2})^2 -\frac{1}{2}\sum_{t=1}^T(y_t-\eta_t)^2 \bigg\}.
+$$
+
+The full conditional for $\theta$ is then:
+$$
+  \begin{aligned}
+    \pi(\theta\mid\mathbf{y},\boldsymbol\eta) &\propto \theta^{T/2-1} \exp\bigg\{-\theta\bigg(1+\frac{1}{2} \sum_{t=3}^T(\eta_t-2\eta_{t-1}+\eta_{t-2})^2\bigg) \bigg\} \\
+    &\propto \textit{Gamma}\bigg(\frac{T}{2}, 1+\frac{1}{2} \sum_{t=3}^T(\eta_t-2\eta_{t-1}+\eta_{t-2})^2 \bigg)
+  \end{aligned}.
+$$
+
+
+The full conditional for $\eta$ is then:
+
+$$
+  \begin{aligned}
+    \pi(\boldsymbol\eta\mid\theta,\mathbf{y}) &\propto \exp\bigg\{-\frac{\theta}{2} \sum_{t=3}^T(\eta_t-2\eta_{t-1}+\eta_{t-2})^2 -\frac{1}{2}\sum_{t=1}^T(y_t-\eta_t)^2 \bigg\} \\
+    &= \exp\bigg\{-\frac{1}{2}\bigg(\boldsymbol\eta^T\mathbf{Q}\boldsymbol\eta+ (\mathbf{y}-\boldsymbol\eta)^T(\mathbf{y}-\boldsymbol\eta)  \bigg)\bigg\}\\
+    &= \exp\bigg\{-\frac{1}{2}\boldsymbol\eta^T(\mathbf{Q}+\mathbf{I})\boldsymbol\eta+\mathbf{y}^T\boldsymbol\eta \bigg\}
+  \end{aligned}.
+$$
+
+TODO: Precision matrix
+
+
+```{R}
+library(Matrix)
+
+make.Q = function(T) {
+  # Function to construct precision matrix
+  diags = list(rep(6,T), rep(-4,T-1), rep(1,T-2))
+  Q = as.matrix(bandSparse(T, T, k=c(0:2), diag=diags, symm=T))
+  Q[1,1] = Q[T,T] = 1
+  Q[1,2] = Q[2,1] = Q[T,T-1] = Q[T-1,T] = -2
+  Q[2,2] = Q[T-1,T-1] = 5
+  return (Q)
+}
+
+Q = make.Q(20)
+
+#print(make.Q(20))
+
+```
+The following function is implemented as a Gibbs sampler for $\pi(x,\theta|y)$:
+
+```{R}
+library(mvtnorm)
+library(MASS)
+
+set.seed(0)
+
+sample.gibbs = function(n, theta.init, f.init, y) {
+  T = length(y)
+  x = rep(0, T) #initial x
+  
+  # Create empty vectors
+  theta.vec = rep(0,n)
+  f.matrix = matrix(1:T*n, nrow = T, ncol = n)
+
+  theta.vec[1] = theta.init #Initialize vector by changing first element
+  f.matrix[, 1] = f.init
+  
+  #Iterate MCMC loop
+  for (i in 2:n) {
+    # Update theta
+    sum = 0
+    for(t in 3:T) {
+      sum = sum + (f.matrix[t, i-1] - 2*f.matrix[t-1, i-1] + f.matrix[t-2, i-1])^2
+    }
+    theta.vec[i] = rgamma(1, shape = T/2, rate = 1 + 0.5*sum)
+
+    # Update x
+    Sigma = solve(theta.vec[i]*Q+diag(T))
+    mu = Sigma%*%y
+    f.matrix[, i] = c(rmvnorm(1,mean=mu, sigma=Sigma))
+  }
+
+  return(rbind(f.matrix, theta.vec)) # Return matrix with f and theta
+
+}
+
+n = 10100 #Steps in MC
+T = length(y)
+theta.init = 0 #initial theta
+f.init = rep(2, T)
+Q = make.Q(T)
+
+# Sample gibbs
+samples = sample.gibbs(n, theta.init, f.init, y) #Create samples
+samples.theta = samples[length(samples[,1]), -c(1:100)] # theta samples, excluding the first 100 values as burnin
+samples.f = samples[-length(samples[,1]), -c(1:100)] # Extracting the f samples, excluding the first 100 values as burnin
+
+# Estimate for the posterior marginal for theta
+truehist(samples.theta, xlab = "theta", main = "Histogram of theta samples, Gibbs-MCM posterior marginal for theta")
+
+
+
+```
+```{R}
+# latent field x_10
+f_10 = samples.f[10,]
+truehist(f_10, xlab = "x_10", main = "Gibbs-MCMC posterior marginal for x_10")
+
+```
+
+Next we wish to calculate the 95% confidence bounds
+
+```{R}
+# latent field x
+f.mean = rep(0,T)
+f.var = rep(0,T)
+conf.upper = rep(0,T)
+conf.lower = rep(0,T)
+# Calculate the mean and variance
+for(t in 1:T) {
+  f.mean[t] = mean(samples.f[t,])
+  f.var[t] = var(samples.f[t,])
+}
+# Calculate 95% confidence bounds
+for(t in 1:T) {
+  z = qnorm(0.025)
+  conf.upper[t] = f.mean[t] + z * sqrt(f.var[t])
+  conf.lower[t] = f.mean[t] - z * sqrt(f.var[t])
+}
+
+Ts = seq(T)
+plot(Ts,y,
+main="Gibbs-MCMC inference for the latent field",
+xlab="t", ylab="value")
+lines(Ts, f.mean)
+lines(Ts, conf.lower, lty=2)
+lines(Ts, conf.upper, lty=2)
+
+```
+
+The histogram of theta samples shows an estimate for $\pi(\theta\mid\mathbf{y})$. The second histogram of $eta_{10}$ samples is an estimate of $\pi(\eta_{10}\mid\mathbf{y})$.
+
+In the Gibbs MCMC plot the data from Gaussian Data are plotted as circles. Thee linearly interpolated posterior means are shown as a solid line, while the bounds of the 95% confidence interval are plotted as the dotted lines. The Gibbs MCMC is sampled with 10.000 samples and a burnin-period at 100 samples.
+
+
+
