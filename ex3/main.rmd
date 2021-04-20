@@ -1,0 +1,33 @@
+
+--- 
+title: 'TMA4300 Computer Intensive Statistical Methods Exercise 2, Spring 2021'
+output:
+  pdf_document:
+    toc: no
+    toc_depth: '2'
+  html_document:
+    toc: yes
+    toc_depth: 2
+    toc_float: yes
+date: "`r format(Sys.time(), '%d.%m.%Y')`"
+subtitle: 'Group members: Eide, Jonathan and Lima-Eriksen, Leik'
+---
+
+\usepackage{amsmath}
+
+\newcommand{\indep}{\perp \!\!\! \perp}
+\newcommand{\vect}[1]{\boldsymbol{\mathbf{#1} }}
+\newcommand{\matr}[1]{\boldsymbol{\mathbf{#1} }}
+\newcommand{\Var}{\textrm{Var}}
+\newcommand{\E}{\textrm{E}}
+\newcommand{\Cov}{\textrm{Cov}}
+\newcommand{\Corr}{\textrm{Corr}}
+
+# Problem A: Comparing AR(2) parameter estimators using resampling of residuals
+
+
+# Problem B: Permutation test
+
+
+# Problem C: The EM-algorithm and bootstrapping
+
