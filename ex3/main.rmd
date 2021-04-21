@@ -68,14 +68,31 @@ summary.lm
 ```
 We want to test the hypotesis that all the individuals bilrubin levels are the same for all individuals: $\beta_1=\beta_2=\beta_3,$. This is tested using the F-test from statistic in summary. The p-value is 0.03946, which means that we can reject the hypothesis that all individuals have the same bilirubin-levels at a sigificance level of 5%.
 
-## 2:
-
-
 
 ```{R}
 Fval = summary.lm$fstatistic
 
 Fval
+
+```
+
+## 2:
+
+We want to write a function $\textbf{permTest()}$ which generates a permutation of the data between the three individuals, consequently fits the model given in (1) and finally returns the value of the F-statistic for
+testing $\beta_1=\beta_2=\beta_3,$.
+
+
+```{R}
+permTest = function(bilirubin) {
+  df = data.frame(meas=sample(bilirubin$meas), pers = bilirubin$pers)
+  model.reg = lm(log(meas)~pers, data=df)
+  Fval = summary(model.reg)$fstatistic["value"]
+  return(Fval)
+}
+
+#Test the function
+permTest(bilirubin)
+
 
 ```
 
