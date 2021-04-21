@@ -96,5 +96,24 @@ permTest(bilirubin)
 
 ```
 
+##3:
+
+Next we perform a permutation test between the three individuals using the function $\textbf{permTest()}$ to check whether there is an actual difference in the bilirubin level in the individuals. This is done generating 999 samples of the F-statistic, and comparing this to the original F-statistic, Fval.If the F-statistic is as high or higher than the original F-statistic, there is no difference in the bilirubin levels of the persons.
+
+```{R}
+#Create samples
+samples = rep(0,999)
+for(i in 1:999){
+  samples[i] = permTest(bilirubin)
+}
+
+# Compute p-value for Fval using samples:
+p.val = length(samples[samples>=Fval["value"]])/999
+
+p.val
+
+```
+The result is a p-value of 0.036, which means that at a significance level of 5% we reject the hypothesis that the bilirubin levels are the same for all persons.
+
 # Problem C: The EM-algorithm and bootstrapping
 
