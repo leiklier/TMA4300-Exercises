@@ -2,13 +2,13 @@
 --- 
 title: 'TMA4300 Computer Intensive Statistical Methods Exercise 2, Spring 2021'
 output:
-  pdf_document:
-    toc: no
-    toc_depth: '2'
   html_document:
     toc: yes
     toc_depth: 2
     toc_float: yes
+  pdf_document:
+    toc: no
+    toc_depth: '2'
 date: "`r format(Sys.time(), '%d.%m.%Y')`"
 subtitle: 'Group members: Eide, Jonathan and Lima-Eriksen, Leik'
 ---
@@ -28,6 +28,56 @@ subtitle: 'Group members: Eide, Jonathan and Lima-Eriksen, Leik'
 
 # Problem B: Permutation test
 
+## 1:
+Bilirubin (see http://en.wikipedia.org/wiki/Bilirubin) is a breakdown product of haemoglobin,
+which is a principal component of red blood cells. If the liver has suffered degeneration, if the decomposition of haemoglobin is elevated, or if the gall bladder has been destroyed, large amounts of bilirubin can
+accumulate in the blood, leading to jaundice. The following data (taken from Jørgensen (1993)) contain
+measurements of the concentration of bilirubin (mg/dL) in blood samples taken from three young men.
+
+We use a boxplot to inspect the data from three different individuals:
+```{R}
+#Load data
+bilirubin <- read.table("bilirubin.txt",header=T)
+
+#Boxplot of data
+boxplot(log(meas)~pers,
+        data=bilirubin,
+        main="Boxplot of Concentration (Logarithmic scale)",
+        xlab="Individual",
+        ylab="log(meas)"
+        )
+
+```
+
+It seems like the levels are higher for p3, and we want to investigate whether the difference is significant.
+
+We fit the linear regression model using $ \textbf{lm} $:
+
+\begin{equation} \label{eq:model_B1}
+\ln(Y_{i,j}) = \beta_i + \epsilon_{i,j}, \qquad \textrm{with } i = 1,2,3 \textrm{ and } j = 1, \dots, n_i
+\end{equation}
+
+where $n_1=11, n_2=10$ and $n_3=8$, and $\epsilon \sim N(0, \sigma^2).$ 
+
+```{R}
+model.reg = lm(log(meas)~pers, data=bilirubin)
+summary.lm = summary(model.reg)
+
+summary.lm
+
+```
+We want to test the hypotesis that all the individuals bilrubin levels are the same for all individuals: $\beta_1=\beta_2=\beta_3,$. This is tested using the F-test from statistic in summary. The p-value is 0.03946, which means that we can reject the hypothesis that all individuals have the same bilirubin-levels at a sigificance level of 5%.
+
+## 2:
+
+
+
+```{R}
+Fval = summary.lm$fstatistic
+
+Fval
+
+```
 
 # Problem C: The EM-algorithm and bootstrapping
 
