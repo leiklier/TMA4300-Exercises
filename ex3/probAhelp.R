@@ -77,3 +77,4 @@ ARp.resid = function(x, beta) {
     # re-center the residuals around zero
     return(e.hat - mean(e.hat))
 }
+

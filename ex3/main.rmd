@@ -23,7 +23,68 @@ subtitle: 'Group members: Eide, Jonathan and Lima-Eriksen, Leik'
 \newcommand{\Cov}{\textrm{Cov}}
 \newcommand{\Corr}{\textrm{Corr}}
 
+```{r setup, include = FALSE}
+library(formatR)
+library(ggpubr)
+library(ggplot2)
+library(coda)
+library(cowplot)
+```
+
 # Problem A: Comparing AR(2) parameter estimators using resampling of residuals
+In this problem we want to analyze a non-Gaussian time-series of length 
+$T = 100$, and compare two different parameter estimators. We consider an AR(2)
+model which is specified by the relation
+
+$$
+  x_t = \beta_1 x_{t-1} + \beta x_{t-2} + e_t
+$$
+
+where $e_t$ are i.i.d.random variables with zero mean and constant variance.
+
+The least sum of squared residuals (LS) and least sum of absolute residuals (LA)
+are obtained by minimizing the following loss functions with respect to $\beta$:
+
+$$
+\begin{aligned}
+  Q_{LS}(\vect{x}) &= \sum_{t=3}^T \left(x-t - \beta_1 x_{t-1} \beta_2 x_{t-2}\right)^2 \\
+  Q_{LA}(\vect{x}) &= \sum_{t=3}^T \left| x_t - \beta_1 x_{t-1} - \beta_2 x_{t-2} \right|
+\end{aligned}
+$$
+
+We denote the minimizers by $\vect{\hat{\beta}}_{LS}$ and $\vect{\hat{\beta}}_{LA}$, and define the estimated residuals to be $\hat{e}_t = x_t - \hat{\beta}_1 x_{t-1} - \hat{\beta}_2 x_{t-2}$ for $t = 3, \dots, T$, and let $\bar{e}$ be the mean of these.then we re-center $\hat{e}_t$ to have mean zero by defining $\hat{\epsilon} = \hat{e}_t - \bar{e}$.
+
+We want to use the residual resampling bootstrap method to evaluate the relative performance of the two
+parameter estimators. The estimators are calculated using the function `ARp.beta.est(...)`, and we can use
+these estimators together with the function `ARp.resid(...)` to calculate the residuals:
+```{R}
+n = length(data3A$x)
+beta = ARp.beta.est(data3A$x, 2)
+
+e.observed.LS = ARp.resid(data3A$x, beta$LS)
+e.observed.LA = ARp.resid(data3A$x, beta$LA)
+```
+
+Next, we want to estimate the variance and bias of the two estimators. We will be using $B = 1500$ bootstrap
+samples, where each sample is as long as the original data sequence ($T = 100$). To do a resampling, we
+initialize values for $x_1$ and $x_2$ by picking a random consecutive subsequence from the data. Then we use
+the function `ARp.filter(...)` to generate a new sample based on the bootstrapped residuals. And finally, we
+perform a regression on the new time-series to obtain bootstrapped estimates of the different $\vect{\beta}$-s:
+
+```{R}
+B = 1500
+
+# Bootstrap the residuals B times
+e.bootstrapped = matrix(sample(e.observed.LS, size=B*(n-2), replace=TRUE), nrow=B, ncol=n-2)
+
+# Initialize x0 so that it contains a random sequence
+# of two consecutive samples:
+indices = sample(99, B, replace=TRUE)
+indices.matrix = matrix(c(indices, indices+1), nrow=B, ncol=2)
+x0 = matrix(data3A$x[indices.matrix], nrow=B, ncol=2)
+
+```
+
 
 
 # Problem B: Permutation test
@@ -31,3 +92,52 @@ subtitle: 'Group members: Eide, Jonathan and Lima-Eriksen, Leik'
 
 # Problem C: The EM-algorithm and bootstrapping
 
+Let $\left\{x_i\right\}_{i=1,\dots,n}$ be i.i.d $\text{Exp}(\lambda_0)$ and $\left\{y_i\right\}_{i=1,\dots,n}$ be i.i.d $\text{Exp}(\lambda_1)$. We assume that we observe neither $x_i$ nor $y_i$ directly, but rather that we observe
+
+$$
+  z_i = \max\left(x_i, y_i\right) \quad \forall \quad i = 1, \dots, n
+$$
+  
+and
+
+$$
+  u_i = I(x_i \geq y_i) \quad \forall \quad i = 1, \dots, n
+$$
+
+where $I(\cdot)$ is the indicator function. This means that we know that we only observe the largest value in the pair $(x_i, y_i)$, and we know whether the observed value is $x_i$ or $y_i$. Based on the observed $(z_i, u_i), i=1,\dots, n$ we will use the EM algorithm to find the maximum likelihood estimates for $(\lamda_0, \lambda_1)$. 
+
+We are interested in finding the log-likelihood function for the complete data $\vect{x} = \begin{pmatrix}x_1 & \dots & x_n\end{pmatrix}^T$ and $\vect{y} = \begin{pmatrix}y_1 & \dots & y_n\end{pmatrix}^T$. This can be derived from the full conditional of the joint of the complete data:
+
+$$
+\pi(x_i, y_i | \lambda_0, \lambda_1) = \pi(x_i | \lambda_0) \times \pi(y_i | \lambda_1) = \lambda_0 \lambda_1 \exp\left\{-\left(\lambda_0 x_i + \lambda_1 y_i\right)\right\}
+$$
+where we have used the fact that $x_i$ and $y_i$ are assumed independent. Then we get
+
+$$
+  \pi(\vect{x}, \vect{y} | \lambda_0, \lambda_1) = \prod_{i=1}^n\pi(x_i, y_i | \lambda_0, \lambda_1) = (\lambda_0 \cdot \lambda_1)^n \exp\left\{ -\lambda_0 \sum_{i=1}^n x_i - \lambda_1 \sum_{i=1}^n y_i \right\}
+$$
+And so the log-likelihood becomes
+
+$$
+\begin{aligned}
+l(\vect{x}, \vect{y}) &= \ln \pi(\vect{x}, \vect{y} | \lambda_0, \lambda_1) \\
+&= n(\ln\lambda_0 + \ln\lambda_1) - \lambda_0 \sum_{i=1}^n x_i - \lambda_1 \sum_{i=1}^n y_i
+\end{aligned}
+$$
+
+The full conditionals of $x_i$ and $y_i$ are found to be
+
+$$
+  \pi(x_i | z_i, u_i, \lambda_0^{(t)}, \lambda_1^{(t)}) = \begin{cases}
+    \frac{\lambda_0^{(t)} \exp\left\{-\lambda_0^{(t)}x_i\right\}}{ 1-\exp\left\{-\lambda_0^{(t)}z_i\right\}}, \quad &u_i = 0,\\
+    z_i, \quad &u_i = 1.
+  \end{cases}
+$$
+$$
+  \pi(y_i | z_i, u_i, \lambda_0^{(t)}, \lambda_1^{(t)}) = \begin{cases}
+    z_i, \quad &u_i = 0, \\
+    \frac{\lambda_1^{(t)} \exp\left\{-\lambda_1^{(t)}y_i\right\}}{ 1-\exp\left\{-\lambda_1^{(t)}z_i\right\}}, \quad &u_i = 1.
+  \end{cases}
+$$
+
+The EM algorithm is based on maximizing $\E[(\vect{x}, \vect{y})]$
