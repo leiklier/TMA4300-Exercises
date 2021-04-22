@@ -1,27 +1,18 @@
-
 --- 
 title: 'TMA4300 Computer Intensive Statistical Methods Exercise 2, Spring 2021'
 output:
+  pdf_document:
+    toc: no
+    toc_depth: '2'
+    includes:
+      in_header: "preamble.tex"
   html_document:
     toc: yes
     toc_depth: 2
     toc_float: yes
-  pdf_document:
-    toc: no
-    toc_depth: '2'
 date: "`r format(Sys.time(), '%d.%m.%Y')`"
 subtitle: 'Group members: Eide, Jonathan and Lima-Eriksen, Leik'
 ---
-
-\usepackage{amsmath}
-
-\newcommand{\indep}{\perp \!\!\! \perp}
-\newcommand{\vect}[1]{\boldsymbol{\mathbf{#1} }}
-\newcommand{\matr}[1]{\boldsymbol{\mathbf{#1} }}
-\newcommand{\Var}{\textrm{Var}}
-\newcommand{\E}{\textrm{E}}
-\newcommand{\Cov}{\textrm{Cov}}
-\newcommand{\Corr}{\textrm{Corr}}
 
 ```{r setup, include = FALSE}
 library(formatR)
@@ -254,7 +245,7 @@ $$
   u_i = I(x_i \geq y_i) \quad \forall \quad i = 1, \dots, n
 $$
 
-where $I(\cdot)$ is the indicator function. This means that we know that we only observe the largest value in the pair $(x_i, y_i)$, and we know whether the observed value is $x_i$ or $y_i$. Based on the observed $(z_i, u_i), i=1,\dots, n$ we will use the EM algorithm to find the maximum likelihood estimates for $(\lamda_0, \lambda_1)$. 
+where $I(\cdot)$ is the indicator function. This means that we know that we only observe the largest value in the pair $(x_i, y_i)$, and we know whether the observed value is $x_i$ or $y_i$. Based on the observed $(z_i, u_i), i=1,\dots, n$ we will use the EM algorithm to find the maximum likelihood estimates for $(\lambda_0, \lambda_1)$. 
 
 We are interested in finding the log-likelihood function for the complete data $\vect{x} = \begin{pmatrix}x_1 & \dots & x_n\end{pmatrix}^T$ and $\vect{y} = \begin{pmatrix}y_1 & \dots & y_n\end{pmatrix}^T$. This can be derived from the full conditional of the joint of the complete data:
 
