@@ -679,7 +679,8 @@ plot(t, y)
 
 
 ```
-## 1:
+
+## 1
 
 Given the vector of linear predictors $\boldsymbol\eta=(\eta_1,\ldots,\eta_T)$, the observations $y_t$ are independent and Gaussian distributed with mean $\eta_t$ and known unit variance:
 
@@ -697,12 +698,12 @@ $$
 
 $\mathbf{Q}$ is the precision matrix and the precision parameter $\phi$ controls the smoothness of the vector f. Choosing a prior distribution for $\phi$ as the Gamma distribution with parameters 1 and 1.
 
-This model could also be written as a hierarchichal model as:
+This model could also be written as a hierarchial model:
 $$
   \begin{aligned}
     \mathbf{y}\mid\mathbf{f} &\sim \prod_{t=1}^T P(y_t\mid \eta_t) \\
     \mathbf{f}\mid\theta &\sim \pi(\mathbf{f}\mid\theta) = \mathcal{N}(\mathbf{0},\mathbf{Q}(\theta)^{-1}) \\
-    \theta &\sim Gamma(1,1)
+    \theta &\sim \textrm{Gamma}(1,1)
   \end{aligned}
 $$
 The first line is the probability of $\mathbf{y}=(y_1,\ldots,y_T)$, the second line is the prior of the latent field, while the third line is the prior of the hyperparameter $\eta_t$.
@@ -719,14 +720,17 @@ Implementing a Gibbs sampling algorithm for $f(\boldsymbol\eta,\theta\mid \mathb
 
 
 $$
-  \pi(\boldsymbol\eta,\theta\mid\mathbf{y}) \propto \pi(\theta) \pi(\boldsymbol\eta\mid\theta) \prod_{t=1}^T\pi(y_t\mid\eta_t,\theta) \propto \frac{\theta^{(T-2)/2}}{(2\pi)^{T/2}} \exp\bigg\{-\theta -\frac{\theta}{2}\sum_{t=3}^T(\eta_t-2\eta_{t-1}+\eta_{t-2})^2 -\frac{1}{2}\sum_{t=1}^T(y_t-\eta_t)^2 \bigg\}.
+\begin{align}
+  \pi(\boldsymbol\eta,\theta\mid\mathbf{y}) & \propto \pi(\theta) \pi(\boldsymbol\eta\mid\theta) \prod_{t=1}^T\pi(y_t\mid\eta_t,\theta) \\ 
+  & \propto \frac{\theta^{(T-2)/2}}{(2\pi)^{T/2}} \exp\bigg\{-\theta -\frac{\theta}{2}\sum_{t=3}^T(\eta_t-2\eta_{t-1}+\eta_{t-2})^2 -\frac{1}{2}\sum_{t=1}^T(y_t-\eta_t)^2 \bigg\}.
+  \end{align}
 $$
 
 The full conditional for $\theta$ is then:
 $$
   \begin{aligned}
     \pi(\theta\mid\mathbf{y},\boldsymbol\eta) &\propto \theta^{T/2-1} \exp\bigg\{-\theta\bigg(1+\frac{1}{2} \sum_{t=3}^T(\eta_t-2\eta_{t-1}+\eta_{t-2})^2\bigg) \bigg\} \\
-    &\propto \textit{Gamma}\bigg(\frac{T}{2}, 1+\frac{1}{2} \sum_{t=3}^T(\eta_t-2\eta_{t-1}+\eta_{t-2})^2 \bigg)
+    &\propto \textrm{Gamma}\bigg(\frac{T}{2}, 1+\frac{1}{2} \sum_{t=3}^T(\eta_t-2\eta_{t-1}+\eta_{t-2})^2 \bigg)
   \end{aligned}.
 $$
 
@@ -758,8 +762,6 @@ make.Q = function(T) {
 }
 
 Q = make.Q(20)
-
-#print(make.Q(20))
 
 ```
 The following function is implemented as a Gibbs sampler for $\pi(x,\theta|y)$. A burnin of 100 is chosen as this gives satisfying results.
@@ -817,7 +819,7 @@ samples.f = samples[-length(samples[,1]), -c(1:100)] # Extracting the f samples,
 # Estimate for the posterior marginal for theta
 truehist(samples.theta,
          xlab = "theta",
-         main = "Histogram of theta samples, Gibbs-MCM posterior marginal for theta")
+         main = "Histogram of theta samples, Gibbs-MCMC posterior marginal for theta")
 
 
 
@@ -863,7 +865,7 @@ lines(Ts, conf_interval.upper, lty=2)
 
 The histogram of theta samples shows an estimate for $\pi(\theta\mid\mathbf{y})$. The second histogram of $eta_{10}$ samples is an estimate of $\pi(\eta_{10}\mid\mathbf{y})$.
 
-In the Gibbs MCMC plot the data from Gaussian Data are plotted as circles. Thee linearly interpolated posterior means are shown as a solid line, while the bounds of the 95% confidence interval are plotted as the dotted lines. The Gibbs MCMC is sampled with 10.000 samples and a burnin-period of 100 samples.
+In the Gibbs MCMC plot the data from Gaussian Data are plotted as circles. The linearly interpolated posterior means are shown as a solid line, while the bounds of the 95% confidence interval are plotted as the dotted lines. The Gibbs MCMC is sampled with 10.000 samples and a burnin-period of 100 samples.
 
 ## 3
 
@@ -876,8 +878,8 @@ Since the likelihood is Gaussian then also $\pi(\eta \mid \theta, \mathbf{y})$ i
 An overview of the distributions are shown below:
 
 - $\pi(\mathrm{y}|\mathrm{x},\theta)=\pi(\mathrm{y}|\mathrm{x})\sim\mathcal{N}(\mathrm{x},\mathrm{I})$
-- $\pi(\mathrm{x}|\theta) \sim \mathcal{N}(0,\mathrm{Q}(\theta))$
-- $\pi(\theta) \sim Gamma(1,1)$
+- $\pi(\mathrm{x}|\theta) \sim \mathcal{N}(0,\mathrm{Q}(\theta)^{-1})$
+- $\pi(\theta) \sim \textrm{Gamma}(1,1)$
 - $\pi(\mathrm{x}|\theta,\mathrm{y})\sim\mathcal{N}(\mathrm{\mu},\mathrm{\Sigma})$
 
 Earlier we found that $\pi(\boldsymbol\eta\mid\theta,\mathbf{y}) \propto \mathcal{N}((\mathbf{Q}+\mathbf{I})^{-1}\mathbf{y},(\mathbf{Q}+\mathbf{I})^{-1})$, therefore we can calculate:
@@ -977,7 +979,7 @@ plot(eta.grid,
 
 ```
 
- Comparing the approximation for $\pi(\eta_n\mid y)$ with the estimation obtained in point 2) via Gibbs sampling, both graphs looks normal with a small positive mean. 
+ Comparing the approximation for $\pi(\eta_n\mid \vect{y})$ with the estimation obtained in point 2) via Gibbs sampling, both graphs looks normal with a small positive mean. 
 
 
 ## 5
