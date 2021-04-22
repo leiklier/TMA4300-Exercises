@@ -72,8 +72,8 @@ n = length(data3A$x)
 beta = ARp.beta.est(data3A$x, 2)
 x = data3A$x
 
-e.observed.LS = ARp.resid(data3A$x, beta$LS)
-e.observed.LA = ARp.resid(data3A$x, beta$LA)
+e.observed.LS = ARp.resid(x, beta$LS)
+e.observed.LA = ARp.resid(x, beta$LA)
 ```
 
 Next, we want to estimate the variance and bias of the two estimators. We will be using $B = 1500$ bootstrap
@@ -83,6 +83,8 @@ the function `ARp.filter(...)` to generate a new sample based on the bootstrappe
 perform a regression on the new time-series to obtain bootstrapped estimates of the different $\vect{\beta}$-s:
 
 ```{R}
+set.seed(1000)
+
 B = 1500
 
 # Bootstrap the residuals B times
@@ -92,15 +94,15 @@ e.bootstrapped = matrix(sample(e.observed.LS, size=B*(n-2), replace=TRUE), nrow=
 # of two consecutive samples:
 indices = sample(99, B, replace=TRUE)
 indices.matrix = matrix(c(indices, indices+1), nrow=B, ncol=2)
-x0 = matrix(data3A$x[indices.matrix], nrow=B, ncol=2)
+x0 = matrix(x[indices.matrix], nrow=B, ncol=2)
 
 beta_LS = beta[[1]]
 beta_LA = beta[[2]]
 T = length(x)
 
-# Matrices to store the bootstrap samples
-bootstrap.beta_LS = matrix(0, nrow = length(beta_LS), ncol = B)
-bootstrap.beta_LA = matrix(0, nrow = length(beta_LA), ncol = B)
+# Matrices to store the bootstrapped samples
+bootstrapped.beta_LS = matrix(0, nrow = length(beta_LS), ncol = B)
+bootstrapped.beta_LA = matrix(0, nrow = length(beta_LA), ncol = B)
 
 for (i in (1:B)) {
   # Pick random consecutive sequence x0 from the data
@@ -113,29 +115,29 @@ for (i in (1:B)) {
   resample_residual.LA = sample(e.observed.LA, size = T, replace = TRUE)
   
   #Calc new sequence of the data
-  x.bootstrap.LS = ARp.filter(x0, beta_LS, resample_residual.LS)[3:(T+2)]
-  x.bootstrap.LA = ARp.filter(x0, beta_LA, resample_residual.LA)[3:(T+2)]
+  x.bootstrap_LS = ARp.filter(x0, beta_LS, resample_residual.LS)[3:(T+2)]
+  x.bootstrap_LA = ARp.filter(x0, beta_LA, resample_residual.LA)[3:(T+2)]
   
   #Estimate betas
-  beta_1 = ARp.beta.est(x.bootstrap.LS, 2)
-  beta_2 = ARp.beta.est(x.bootstrap.LA, 2)
+  beta_1 = ARp.beta.est(x.bootstrap_LS, 2)
+  beta_2 = ARp.beta.est(x.bootstrap_LA, 2)
 
   #Save data
-  bootstrap.beta_LS[,i] = beta_1[[1]]
-  bootstrap.beta_LA[,i] = beta_2[[2]]
+  bootstrapped.beta_LS[,i] = beta_1[[1]]
+  bootstrapped.beta_LA[,i] = beta_2[[2]]
   
 }
 
 #Calculate bias
-beta_LS.mean = c(mean(bootstrap.beta_LS[1,]), mean(bootstrap.beta_LS[2,]))
-beta_LA.mean = c(mean(bootstrap.beta_LA[1,]), mean(bootstrap.beta_LA[2,]))
+beta_LS.mean = c(mean(bootstrapped.beta_LS[1,]), mean(bootstrapped.beta_LS[2,]))
+beta_LA.mean = c(mean(bootstrapped.beta_LA[1,]), mean(bootstrapped.beta_LA[2,]))
 
 beta_LS.bias = beta_LS.mean - beta_LS
 beta_LA.bias = beta_LA.mean - beta_LA
 
 #Calculate variances
-beta_LS.var = c(var(bootstrap.beta_LS[1,]), var(bootstrap.beta_LS[2,]))
-beta_LA.var = c(var(bootstrap.beta_LA[1,]), var(bootstrap.beta_LA[2,]))
+beta_LS.var = c(var(bootstrapped.beta_LS[1,]), var(bootstrapped.beta_LS[2,]))
+beta_LA.var = c(var(bootstrapped.beta_LA[1,]), var(bootstrapped.beta_LA[2,]))
 
 #Print results
 cat("Bias and variance of LS and LA estimators:\n")
@@ -147,6 +149,84 @@ cat("Beta LA variance: ", beta_LA.var, "\n")
 ```
 
 The LS estimator is optimal for Gaussian AR(p) processes, however from the results we see that LA has a lower variance and bias than LS. LA is in this case better than LS because the data is not Gaussian.
+
+## 2:
+
+We wish to compute a 95% prediction interval for $x_{101}$ based on both estimators. This means using the
+bootstrapped time series and parameter estimates obtained in part 1) to estimate the corresponding
+residual distribution and in turn use this to simulate a value $x_{101}$ for the observed time series.
+
+```{R}
+
+#NOTE: Generation of residuals is copied from previous part
+x101.LS = rep(0, B)
+x101.LA = rep(0, B)
+
+
+set.seed(1000)
+
+B = 1500
+
+# Bootstrap the residuals B times
+e.bootstrapped = matrix(sample(e.observed.LS, size=B*(n-2), replace=TRUE), nrow=B, ncol=n-2)
+
+# Initialize x0 so that it contains a random sequence
+# of two consecutive samples:
+indices = sample(99, B, replace=TRUE)
+indices.matrix = matrix(c(indices, indices+1), nrow=B, ncol=2)
+x0 = matrix(x[indices.matrix], nrow=B, ncol=2)
+
+beta_LS = beta[[1]]
+beta_LA = beta[[2]]
+T = length(x)
+
+# Matrices to store the bootstrapped samples
+bootstrapped.beta_LS = matrix(0, nrow = length(beta_LS), ncol = B)
+bootstrapped.beta_LA = matrix(0, nrow = length(beta_LA), ncol = B)
+
+for (i in (1:B)) {
+  # Pick random consecutive sequence x0 from the data
+  random_index = sample(1:99, 1)
+  x0 = c(x[random_index], x[random_index+1])
+
+  # Reorder data
+  x0 = rev(x0)
+  resample_residual.LS = sample(e.observed.LS, size = T, replace = TRUE)    
+  resample_residual.LA = sample(e.observed.LA, size = T, replace = TRUE)
+  
+  #Calc new sequence of the data
+  x.bootstrap_LS = ARp.filter(x0, beta_LS, resample_residual.LS)[3:(T+2)]
+  x.bootstrap_LA = ARp.filter(x0, beta_LA, resample_residual.LA)[3:(T+2)]
+  
+  #Estimate betas
+  beta_LS = ARp.beta.est(x.bootstrap_LS, 2)[[1]]
+  beta_LA = ARp.beta.est(x.bootstrap_LA, 2)[[2]]
+
+  
+  # New part of code, calculating corresponding residuals
+  boot.e101.LS = ARp.resid(x.bootstrap_LS, beta_LS)
+  boot.e101.LA = ARp.resid(x.bootstrap_LA, beta_LA)
+
+  # Choose random residual
+  random_residual = sample(1:length(boot.e101.LS),1)
+  e101.LS = boot.e101.LS[random_residual]
+  e101.LA = boot.e101.LA[random_residual]
+  # Find x101
+  x101.LS[i] = beta_LS[1] * x[T] + beta_LS[2] * x[T-1] + e101.LS
+  x101.LA[i] = beta_LA[1] * x[T] + beta_LA[2] * x[T-1] + e101.LA
+  
+}
+
+# Calculate quantiles
+quantile_LS = quantile(x101.LS, c(0.025, 0.975))
+quantile_LA = quantile(x101.LA, c(0.025, 0.975))
+
+#Print result
+cat("Quantiles LS: ", quantile_LS, "\n")
+cat("Quantiles LA: ", quantile_LA, "\n")
+
+```
+
 
 # Problem B: Permutation test
 
@@ -218,7 +298,7 @@ permTest(bilirubin)
 
 ```
 
-##3:
+## 3:
 
 Next we perform a permutation test between the three individuals using the function $\textbf{permTest()}$ to check whether there is an actual difference in the bilirubin level in the individuals. This is done generating 999 samples of the F-statistic, and comparing this to the original F-statistic, Fval.If the F-statistic is as high or higher than the original F-statistic, there is no difference in the bilirubin levels of the persons.
 
