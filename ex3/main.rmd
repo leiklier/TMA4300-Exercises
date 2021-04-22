@@ -165,7 +165,7 @@ boxplot(log(meas)~pers,
 
 It seems like the levels are higher for p3, and we want to investigate whether the difference is significant.
 
-We fit the linear regression model using $ \textbf{lm} $:
+We fit the linear regression model using `lm`:
 
 \begin{equation} \label{eq:model_B1}
 \ln(Y_{i,j}) = \beta_i + \epsilon_{i,j}, \qquad \textrm{with } i = 1,2,3 \textrm{ and } j = 1, \dots, n_i
@@ -180,7 +180,7 @@ summary.lm = summary(model.reg)
 summary.lm
 
 ```
-We want to test the hypotesis that all the individuals bilrubin levels are the same for all individuals: $\beta_1=\beta_2=\beta_3,$. This is tested using the F-test from statistic in summary. The p-value is 0.03946, which means that we can reject the hypothesis that all individuals have the same bilirubin-levels at a sigificance level of 5%.
+We want to test the hypotesis that all the individuals bilrubin levels are the same for all individuals: $\beta_1=\beta_2=\beta_3$. This is tested using the F-test from statistic in summary. The p-value is 0.03946, which means that we can reject the hypothesis that all individuals have the same bilirubin-levels at a sigificance level of 5%.
 
 
 ```{R}
@@ -231,12 +231,11 @@ The result is a p-value of 0.036, which means that at a significance level of 5%
 
 # Problem C: The EM-algorithm and bootstrapping
 
-## Task 1)
 
-Let $\left\{x_i\right\}_{i=1,\dots,n}$ be i.i.d $\text{Exp}(\lambda_0)$ and $\left\{y_i\right\}_{i=1,\dots,n}$ be i.i.d $\text{Exp}(\lambda_1)$. We assume that we observe neither $x_i$ nor $y_i$ directly, but rather that we observe
+Let $\left\{x_i\right\}_{i=1,\dots,n}$ be i.i.d $\text{Exp}(\lambda_0)$ and $\left\{y_i\right\}_{i=1,\dots,n}$ be i.i.d $\text{Exp}(\lambda_1)$. Assume that we observe neither $x_i$ nor $y_i$ directly, but that we observe
 
 $$
-  z_i = \max\left(x_i, y_i\right) \quad \forall \quad i = 1, \dots, n
+  z_i = \max\left(x_i, y_i\right) \quad \forall \quad i = 1, \dots, n 
 $$
   
 and
@@ -245,15 +244,16 @@ $$
   u_i = I(x_i \geq y_i) \quad \forall \quad i = 1, \dots, n
 $$
 
-where $I(\cdot)$ is the indicator function. This means that we know that we only observe the largest value in the pair $(x_i, y_i)$, and we know whether the observed value is $x_i$ or $y_i$. Based on the observed $(z_i, u_i), i=1,\dots, n$ we will use the EM algorithm to find the maximum likelihood estimates for $(\lambda_0, \lambda_1)$. 
+where $I(\cdot)$ is the indicator function. Stated differently, we are only able to observe the latest variable, and at the same time we know which of the variables we are observing. Based on the observed $(z_i, u_i), i=1,\dots, n$ we will use the EM algorithm to find the maximum likelihood estimates for $(\lambda_0, \lambda_1)$. 
 
-We are interested in finding the log-likelihood function for the complete data $\vect{x} = \begin{pmatrix}x_1 & \dots & x_n\end{pmatrix}^T$ and $\vect{y} = \begin{pmatrix}y_1 & \dots & y_n\end{pmatrix}^T$. This can be derived from the full conditional of the joint of the complete data:
+## Task 1)
+
+We are interested in finding the log-likelihood function for the complete data $\vect{x} = \begin{pmatrix}x_1 & \dots & x_n\end{pmatrix}^T$ and $\vect{y} = \begin{pmatrix}y_1 & \dots & y_n\end{pmatrix}^T$. This can be derived from the full conditional of the joint of the complete data.  Starting with
 
 $$
 \pi(x_i, y_i | \lambda_0, \lambda_1) = \pi(x_i | \lambda_0) \times \pi(y_i | \lambda_1) = \lambda_0 \lambda_1 \exp\left\{-\left(\lambda_0 x_i + \lambda_1 y_i\right)\right\}
 $$
-where we have used the fact that $x_i$ and $y_i$ are assumed independent. Then we get
-
+where we have used the fact that $x_i$ and $y_i$ are assumed independent, we get that
 $$
   \pi(\vect{x}, \vect{y} | \lambda_0, \lambda_1) = \prod_{i=1}^n\pi(x_i, y_i | \lambda_0, \lambda_1) = (\lambda_0 \cdot \lambda_1)^n \exp\left\{ -\lambda_0 \sum_{i=1}^n x_i - \lambda_1 \sum_{i=1}^n y_i \right\}
 $$
@@ -261,7 +261,7 @@ And so the log-likelihood becomes
 
 $$
 \begin{aligned}
-l(\vect{x}, \vect{y} | \lambda_0, \lambda_1) &= \ln \pi(\vect{x}, \vect{y} | \lambda_0, \lambda_1) \\
+l(\vect{x}, \vect{y}; \lambda_0, \lambda_1) &= \ln \pi(\vect{x}, \vect{y} | \lambda_0, \lambda_1) \\
 &= n(\ln\lambda_0 + \ln\lambda_1) - \lambda_0 \sum_{i=1}^n x_i - \lambda_1 \sum_{i=1}^n y_i
 \end{aligned}
 $$
@@ -280,23 +280,22 @@ $$
     \frac{\lambda_1^{(t)} \exp\left\{-\lambda_1^{(t)}y_i\right\}}{ 1-\exp\left\{-\lambda_1^{(t)}z_i\right\}}, \quad &u_i = 1.
   \end{cases}
 $$
-
-The EM algorithm is based on maximizing $\E[l(\vect{x}, \vect{y} | \lambda_0, \lambda_1)]$ assuming that $\vect{x}$ and $\vect{y}$ comes from the distributions for $\vect{z}$ and $\vect{u}$. We also have to make some initial guess on the intensities $\lambda_0^{(t)}$ and $\lambda_1^{(t)}$. Then we get
+The EM algorithm is based on alternating between an expectation step and a maximization step. In the expectation step, we calculate $\E[l(\vect{x}, \vect{y}; \lambda_0, \lambda_1)]$ where we use our current best values for our parameters $\lambda_0$ and $\lambda_1$. We have that
 
 $$
   \begin{aligned}
-  \E[l(\vect{x}, \vect{y} | \lambda_0, \lambda_1) | \vect{z}, \vect{u}, \lambda_0^{(t)}, \lambda_1^{(t)}] &= n \cdot (\ln \lambda_0 + \ln \lambda_1)\\
+  \E[l(\vect{x}, \vect{y}; \lambda_0, \lambda_1) | \vect{z}, \vect{u}, \lambda_0^{(t)}, \lambda_1^{(t)}] &= n \cdot (\ln \lambda_0 + \ln \lambda_1)\\
   &- \lambda_0 \sum_{i=1}^n \E[x_i | z_i, u_i, \lambda_0^{(t)}, \lambda_1^{(t)}] \\
   &- \lambda_1 \sum_{i=1}^n \E[y_i | z_i, u_i, \lambda_1^{(t)}, \lambda_1^{(t)}]
   \end{aligned}
 $$
 
-The expectations mentioned in the above equations are found as follows:
+The expectations mentioned in the above equation are found as follows:
 
 $$
 \begin{aligned}
   \E[x_i | z_i, u_i, \lambda_0^{(t)}, \lambda_1^{(t)}] &= u_i z_i + (1 - u_i) \int_0^{z_i} x_i \frac{\lambda_0^{(t)} \exp\left\{-\lambda_0^{(t)} x_i\right\}}{1 - \exp\left\{-\lambda_0^{(t)} z_i\right\}} dx_i \\
-  &= u_i z_i + (1 - u_i) \left( \frac{1}{\lambda_0^{(t)}} - \frac{z_i}{\exp\left\{\lambda_0^{(t)z_i}\right\} - 1}\right)
+  &= u_i z_i + (1 - u_i) \left( \frac{1}{\lambda_0^{(t)}} - \frac{z_i}{\exp\left\{\lambda_0^{(t)}z_i\right\} - 1}\right)
 \end{aligned}
 $$
 
@@ -320,7 +319,7 @@ $$
 
 ## Task 2)
 
-The function $Q(\cdot)$ attains a maximum, and it is analytically tractable by considering
+The maximization step involves maximizing $Q(\cdot)$, and it is analytically tractable by considering
 
 $$
   \frac{\partial Q}{\partial \lambda_0} = 0 \quad \text{and} \quad \frac{\partial Q}{\partial \lambda_1} = 0
@@ -355,7 +354,9 @@ for(i in 2:num_iterations) {
 df_lambda_0 = data.frame(lambda_0=abs(diff(lambda_0)), iter=1:(num_iterations-1))
 df_lambda_1 = data.frame(lambda_1=abs(diff(lambda_1)), iter=1:(num_iterations-1))
 
-ggplot() + geom_line(data=df_lambda_0, aes(x=iter, y=lambda_0, color="lambda_0")) + geom_line(data=df_lambda_1, aes(x=iter, y=lambda_1, color="lambda_1")) + xlab("Iteration") + ylab("|lambda^(t+1) - lambda^t|")
+ggplot() + geom_line(data=df_lambda_0, aes(x=iter, y=lambda_0, color="lambda_0")) +
+  geom_line(data=df_lambda_1, aes(x=iter, y=lambda_1, color="lambda_1")) + xlab("Iteration") +
+  ylab("|lambda^(t+1) - lambda^t|")
 ```
 
 ```{R}
@@ -364,27 +365,22 @@ cat("lambda_1 after 20 iterations:", lambda_1[20], "\n")
 ```
 
 
-From the above plot we see that the EM algorithm makes the maximum likelihood estimates $\hat{\lambda_0}$ and $\hat{\lambda_1}$ for $\lambda_0$ and $\lambda_1$ respectively converge very fast. After 20 iterations, we find $\hat{\lambda_0} = 3.46$ and $\hat{\lambda_1} = 9.33$.
+From the above plot we see that the EM algorithm makes the maximum likelihood estimates $\hat{\lambda_0}$ and $\hat{\lambda_1}$ for respectively $\lambda_0$ and $\lambda_1$ converge very fast. After 20 iterations, we find $\hat{\lambda_0} = 3.463089$ and $\hat{\lambda_1} 9.334877$.
 
-## 3:
+## Task 3)
 
-Now we want to investigate the bias and variance of the estimator defined by the EM-algorithm. This we can do by using the bootstrap algorithm. In pseudocode, we want to do the following:
+Now we want to estimate the bias and variance of the estimator defined by the EM-algorithm. This we can do by using the bootstrap algorithm. In pseudocode, we want to do the following:
 
-for $b$ in $(1, 2, \dots, B)$ do
+for b in (1, 2, ..., B) do
 
-1. $u_{b}^* \leftarrow$ sample with replacement from $u$
-2. $z_{b}^* \leftarrow$ sample with replacement from $z$
-3.  $(\lambda_{0, b}^{*}, \lambda_{1, b}^{*}) \leftarrow$ run EM algorithm with $u_{b}^*$ and $z_{b}^*$
-4. store $(\lambda_{0, b}^{*}, \lambda_{1, b}^{*})$ as a single bootstrap estimate.
+1. Sample $z_b^*$ with replacement from $z$
+2. Sample $u_b^*$ with replacement from $u$
+3. Obtain a bootstrap estimate $(\lambda_{0, b}^{*}, \lambda_{1, b}^{*})$ by using the EM-algorithm with $z_b^*$ and $u_b^*$. 
+4. Store the estimate $(\lambda_{0, b}^{*}, \lambda_{1, b}^{*})$ 
 
-for b in (1, 2, ..., B) do:
-  1. Sample $z_b^*$ with replacement from $z$
-  2. Sample $u_b^*$ with replacement from $u$
-  3. Obtain a bootstrap estimate $(\lambda_{0, b}^{*}, \lambda_{1, b}^{*})$ by using the EM-algorithm with $z_b^*$ and $u_b^*$. 
-  4. Store the estimate $(\lambda_{0, b}^{*}, \lambda_{1, b}^{*})$ 
 end for
 
-We also need to define a stopping criteria for the EM-algorithm. In our case, we will be using the two-norm with tolerance $10^{-10}$.
+We also need to define a stopping criterium for the EM-algorithm. In our case, we will be using the two-norm with tolerance $10^{-10}$.
 
 ```{R}
 B = 20000
@@ -450,7 +446,7 @@ Because of this, we would prefer using the maximum likelihood estimate. Also, si
 
 ## Task 4)
 
-We now want to find an analytical formula for $\pi(z_i u_i | \lambda_0, \lambda_1)$. We start by calculating the cumulative distribution for $z_i$ when $u_i = 1$, implying $z_i = x_i$:
+We now want to find an analytical formula for $\pi(z_i, u_i | \lambda_0, \lambda_1)$. We start by calculating the cumulative distribution for $z_i$ when $u_i = 1$, implying $z_i = x_i$:
 
 $$
   \begin{aligned}
@@ -509,7 +505,7 @@ $$
     0 & - \frac{n_0}{\lambda_1^2} - \underset{u_i = 1}{\sum_{i=1}^n} \frac{z_i^2 e^{\lambda_1 z_i}}{\left(e^{\lambda_1 z_i}-1\right)^2}
   \end{pmatrix}
 $$
-Since the hessian is negative definite for all $(\lambda_0, \lambda_1)$, there exists a unique maximum which is unique. We will be using R's built-in optimization function `optim` in order to find the maximum:
+Since the hessian is negative definite for all $(\lambda_0, \lambda_1)$, there exists a unique maximum. We will be using R's built-in optimization function `optim` in order to find the maximum:
 
 ```{R}
 loglikelihood = function(lambdas) {
