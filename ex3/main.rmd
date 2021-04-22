@@ -82,25 +82,24 @@ B = 1500
 
 beta_LS = beta[[1]]
 beta_LA = beta[[2]]
-T = length(x)
 
 # Matrices to store the bootstrapped samples
-bootstrapped.beta_LS = matrix(0, nrow = length(beta_LS), ncol = B)
-bootstrapped.beta_LA = matrix(0, nrow = length(beta_LA), ncol = B)
+bootstrapped.beta_LS = matrix(NA, nrow = length(beta_LS), ncol = B)
+bootstrapped.beta_LA = matrix(NA, nrow = length(beta_LA), ncol = B)
 
-for (i in (1:B)) {
-  # Pick random consecutive sequence x0 from the data
+for (i in 1:B) {
+  # Create a random consecutive sequence to initialise
   random_index = sample(1:99, 1)
   x0 = c(x[random_index], x[random_index+1])
 
   # Reorder data
   x0 = rev(x0)
-  resample_residual.LS = sample(e.observed.LS, size = T, replace = TRUE)    
-  resample_residual.LA = sample(e.observed.LA, size = T, replace = TRUE)
+  resample_residual.LS = sample(e.observed.LS, size = n, replace = TRUE)    
+  resample_residual.LA = sample(e.observed.LA, size = n, replace = TRUE)
   
   #Calc new sequence of the data
-  x.bootstrap_LS = ARp.filter(x0, beta_LS, resample_residual.LS)[3:(T+2)]
-  x.bootstrap_LA = ARp.filter(x0, beta_LA, resample_residual.LA)[3:(T+2)]
+  x.bootstrap_LS = ARp.filter(x0, beta_LS, resample_residual.LS)[3:(n+2)]
+  x.bootstrap_LA = ARp.filter(x0, beta_LA, resample_residual.LA)[3:(n+2)]
   
   #Estimate betas
   beta_1 = ARp.beta.est(x.bootstrap_LS, 2)
@@ -143,8 +142,8 @@ residual distribution and in turn use this to simulate a value $x_{101}$ for the
 ```{R}
 
 #NOTE: Generation of residuals is copied from previous part
-x101.LS = rep(0, B)
-x101.LA = rep(0, B)
+x_101.LS = rep(0, B)
+x_101.LA = rep(0, B)
 
 
 set.seed(1000)
@@ -153,48 +152,49 @@ B = 1500
 
 beta_LS = beta[[1]]
 beta_LA = beta[[2]]
-T = length(x)
 
-# Matrices to store the bootstrapped samples
-bootstrapped.beta_LS = matrix(0, nrow = length(beta_LS), ncol = B)
-bootstrapped.beta_LA = matrix(0, nrow = length(beta_LA), ncol = B)
-
-for (i in (1:B)) {
-  # Pick random consecutive sequence x0 from the data
+for (i in 1:B) {
+  # Create a random consecutive sequence to initialise
   random_index = sample(1:99, 1)
   x0 = c(x[random_index], x[random_index+1])
 
   # Reorder data
   x0 = rev(x0)
-  resample_residual.LS = sample(e.observed.LS, size = T, replace = TRUE)    
-  resample_residual.LA = sample(e.observed.LA, size = T, replace = TRUE)
+  
+  #Sample from observed LS and LA
+  resample_residual.LS = sample(e.observed.LS, size = n, replace = TRUE)    
+  resample_residual.LA = sample(e.observed.LA, size = n, replace = TRUE)
   
   #Calc new sequence of the data
-  x.bootstrap_LS = ARp.filter(x0, beta_LS, resample_residual.LS)[3:(T+2)]
-  x.bootstrap_LA = ARp.filter(x0, beta_LA, resample_residual.LA)[3:(T+2)]
+  x.bootstrap_LS = ARp.filter(x0, beta_LS, resample_residual.LS)[3:(n+2)]
+  x.bootstrap_LA = ARp.filter(x0, beta_LA, resample_residual.LA)[3:(n+2)]
   
   #Estimate betas
   beta_LS = ARp.beta.est(x.bootstrap_LS, 2)[[1]]
   beta_LA = ARp.beta.est(x.bootstrap_LA, 2)[[2]]
 
   
-  # New part of code, calculating corresponding residuals
-  boot.e101.LS = ARp.resid(x.bootstrap_LS, beta_LS)
-  boot.e101.LA = ARp.resid(x.bootstrap_LA, beta_LA)
+  ## Calculate x_101 LS and LA
+
+
+  #calculating corresponding residuals
+  bootstrapped.e_101.LS = ARp.resid(x.bootstrap_LS, beta_LS)
+  bootstrapped.e_101.LA = ARp.resid(x.bootstrap_LA, beta_LA)
 
   # Choose random residual
-  random_residual = sample(1:length(boot.e101.LS),1)
-  e101.LS = boot.e101.LS[random_residual]
-  e101.LA = boot.e101.LA[random_residual]
-  # Find x101
-  x101.LS[i] = beta_LS[1] * x[T] + beta_LS[2] * x[T-1] + e101.LS
-  x101.LA[i] = beta_LA[1] * x[T] + beta_LA[2] * x[T-1] + e101.LA
+  random_residual = sample(1:length(bootstrapped.e_101.LS),1)
+  e_101.LS = bootstrapped.e_101.LS[random_residual]
+  e_101.LA = bootstrapped.e_101.LA[random_residual]
+  
+  # Find x_101 from x_101 = beta_1 * x_99 + beta_2 * x_100 + residual
+  x_101.LS[i] = beta_LS[1] * x[n] + beta_LS[2] * x[n-1] + e_101.LS
+  x_101.LA[i] = beta_LA[1] * x[n] + beta_LA[2] * x[n-1] + e_101.LA
   
 }
 
 # Calculate quantiles
-quantile_LS = quantile(x101.LS, c(0.025, 0.975))
-quantile_LA = quantile(x101.LA, c(0.025, 0.975))
+quantile_LS = quantile(x_101.LS, c(0.025, 0.975))
+quantile_LA = quantile(x_101.LA, c(0.025, 0.975))
 
 #Print result
 cat("Quantiles LS: ", quantile_LS, "\n")
