@@ -57,9 +57,20 @@ We denote the minimizers by $\vect{\hat{\beta}}_{LS}$ and $\vect{\hat{\beta}}_{L
 We want to use the residual resampling bootstrap method to evaluate the relative performance of the two
 parameter estimators. The estimators are calculated using the function `ARp.beta.est(...)`, and we can use
 these estimators together with the function `ARp.resid(...)` to calculate the residuals:
+
+
+```{r, echo = F, eval = T}
+#Load data
+source("probAdata.R")
+source("probAhelp.R")
+
+```
+
 ```{R}
+
 n = length(data3A$x)
 beta = ARp.beta.est(data3A$x, 2)
+x = data3A$x
 
 e.observed.LS = ARp.resid(data3A$x, beta$LS)
 e.observed.LA = ARp.resid(data3A$x, beta$LA)
@@ -83,9 +94,59 @@ indices = sample(99, B, replace=TRUE)
 indices.matrix = matrix(c(indices, indices+1), nrow=B, ncol=2)
 x0 = matrix(data3A$x[indices.matrix], nrow=B, ncol=2)
 
+beta_LS = beta[[1]]
+beta_LA = beta[[2]]
+T = length(x)
+
+# Matrices to store the bootstrap samples
+bootstrap.beta_LS = matrix(0, nrow = length(beta_LS), ncol = B)
+bootstrap.beta_LA = matrix(0, nrow = length(beta_LA), ncol = B)
+
+for (i in (1:B)) {
+  # Pick random consecutive sequence x0 from the data
+  random_index = sample(1:99, 1)
+  x0 = c(x[random_index], x[random_index+1])
+
+  # Reorder data
+  x0 = rev(x0)
+  resample_residual.LS = sample(e.observed.LS, size = T, replace = TRUE)    
+  resample_residual.LA = sample(e.observed.LA, size = T, replace = TRUE)
+  
+  #Calc new sequence of the data
+  x.bootstrap.LS = ARp.filter(x0, beta_LS, resample_residual.LS)[3:(T+2)]
+  x.bootstrap.LA = ARp.filter(x0, beta_LA, resample_residual.LA)[3:(T+2)]
+  
+  #Estimate betas
+  beta_1 = ARp.beta.est(x.bootstrap.LS, 2)
+  beta_2 = ARp.beta.est(x.bootstrap.LA, 2)
+
+  #Save data
+  bootstrap.beta_LS[,i] = beta_1[[1]]
+  bootstrap.beta_LA[,i] = beta_2[[2]]
+  
+}
+
+#Calculate bias
+beta_LS.mean = c(mean(bootstrap.beta_LS[1,]), mean(bootstrap.beta_LS[2,]))
+beta_LA.mean = c(mean(bootstrap.beta_LA[1,]), mean(bootstrap.beta_LA[2,]))
+
+beta_LS.bias = beta_LS.mean - beta_LS
+beta_LA.bias = beta_LA.mean - beta_LA
+
+#Calculate variances
+beta_LS.var = c(var(bootstrap.beta_LS[1,]), var(bootstrap.beta_LS[2,]))
+beta_LA.var = c(var(bootstrap.beta_LA[1,]), var(bootstrap.beta_LA[2,]))
+
+#Print results
+cat("Bias and variance of LS and LA estimators:\n")
+cat("Beta LS bias: ", beta_LS.bias, "\n")
+cat("Beta LA bias: ", beta_LA.bias, "\n")
+cat("Beta LS variance: ", beta_LS.var, "\n")
+cat("Beta LA variance: ", beta_LA.var, "\n")
+
 ```
 
-
+The LS estimator is optimal for Gaussian AR(p) processes, however from the results we see that LA has a lower variance and bias than LS. LA is in this case better than LS because the data is not Gaussian.
 
 # Problem B: Permutation test
 
