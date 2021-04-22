@@ -1,27 +1,18 @@
-
 --- 
 title: 'TMA4300 Computer Intensive Statistical Methods Exercise 2, Spring 2021'
 output:
+  pdf_document:
+    toc: no
+    toc_depth: '2'
+    includes:
+      in_header: "preamble.tex"
   html_document:
     toc: yes
     toc_depth: 2
     toc_float: yes
-  pdf_document:
-    toc: no
-    toc_depth: '2'
 date: "`r format(Sys.time(), '%d.%m.%Y')`"
 subtitle: 'Group members: Eide, Jonathan and Lima-Eriksen, Leik'
 ---
-
-\usepackage{amsmath}
-
-\newcommand{\indep}{\perp \!\!\! \perp}
-\newcommand{\vect}[1]{\boldsymbol{\mathbf{#1} }}
-\newcommand{\matr}[1]{\boldsymbol{\mathbf{#1} }}
-\newcommand{\Var}{\textrm{Var}}
-\newcommand{\E}{\textrm{E}}
-\newcommand{\Cov}{\textrm{Cov}}
-\newcommand{\Corr}{\textrm{Corr}}
 
 ```{r setup, include = FALSE}
 library(formatR)
@@ -29,6 +20,7 @@ library(ggpubr)
 library(ggplot2)
 library(coda)
 library(cowplot)
+library(MASS)
 ```
 
 # Problem A: Comparing AR(2) parameter estimators using resampling of residuals
@@ -319,6 +311,8 @@ The result is a p-value of 0.036, which means that at a significance level of 5%
 
 # Problem C: The EM-algorithm and bootstrapping
 
+## Task 1)
+
 Let $\left\{x_i\right\}_{i=1,\dots,n}$ be i.i.d $\text{Exp}(\lambda_0)$ and $\left\{y_i\right\}_{i=1,\dots,n}$ be i.i.d $\text{Exp}(\lambda_1)$. We assume that we observe neither $x_i$ nor $y_i$ directly, but rather that we observe
 
 $$
@@ -331,7 +325,7 @@ $$
   u_i = I(x_i \geq y_i) \quad \forall \quad i = 1, \dots, n
 $$
 
-where $I(\cdot)$ is the indicator function. This means that we know that we only observe the largest value in the pair $(x_i, y_i)$, and we know whether the observed value is $x_i$ or $y_i$. Based on the observed $(z_i, u_i), i=1,\dots, n$ we will use the EM algorithm to find the maximum likelihood estimates for $(\lamda_0, \lambda_1)$. 
+where $I(\cdot)$ is the indicator function. This means that we know that we only observe the largest value in the pair $(x_i, y_i)$, and we know whether the observed value is $x_i$ or $y_i$. Based on the observed $(z_i, u_i), i=1,\dots, n$ we will use the EM algorithm to find the maximum likelihood estimates for $(\lambda_0, \lambda_1)$. 
 
 We are interested in finding the log-likelihood function for the complete data $\vect{x} = \begin{pmatrix}x_1 & \dots & x_n\end{pmatrix}^T$ and $\vect{y} = \begin{pmatrix}y_1 & \dots & y_n\end{pmatrix}^T$. This can be derived from the full conditional of the joint of the complete data:
 
@@ -347,7 +341,7 @@ And so the log-likelihood becomes
 
 $$
 \begin{aligned}
-l(\vect{x}, \vect{y}) &= \ln \pi(\vect{x}, \vect{y} | \lambda_0, \lambda_1) \\
+l(\vect{x}, \vect{y} | \lambda_0, \lambda_1) &= \ln \pi(\vect{x}, \vect{y} | \lambda_0, \lambda_1) \\
 &= n(\ln\lambda_0 + \ln\lambda_1) - \lambda_0 \sum_{i=1}^n x_i - \lambda_1 \sum_{i=1}^n y_i
 \end{aligned}
 $$
@@ -367,4 +361,249 @@ $$
   \end{cases}
 $$
 
-The EM algorithm is based on maximizing $\E[(\vect{x}, \vect{y})]$
+The EM algorithm is based on maximizing $\E[l(\vect{x}, \vect{y} | \lambda_0, \lambda_1)]$ assuming that $\vect{x}$ and $\vect{y}$ comes from the distributions for $\vect{z}$ and $\vect{u}$. We also have to make some initial guess on the intensities $\lambda_0^{(t)}$ and $\lambda_1^{(t)}$. Then we get
+
+$$
+  \begin{aligned}
+  \E[l(\vect{x}, \vect{y} | \lambda_0, \lambda_1) | \vect{z}, \vect{u}, \lambda_0^{(t)}, \lambda_1^{(t)}] &= n \cdot (\ln \lambda_0 + \ln \lambda_1)\\
+  &- \lambda_0 \sum_{i=1}^n \E[x_i | z_i, u_i, \lambda_0^{(t)}, \lambda_1^{(t)}] \\
+  &- \lambda_1 \sum_{i=1}^n \E[y_i | z_i, u_i, \lambda_1^{(t)}, \lambda_1^{(t)}]
+  \end{aligned}
+$$
+
+The expectations mentioned in the above equations are found as follows:
+
+$$
+\begin{aligned}
+  \E[x_i | z_i, u_i, \lambda_0^{(t)}, \lambda_1^{(t)}] &= u_i z_i + (1 - u_i) \int_0^{z_i} x_i \frac{\lambda_0^{(t)} \exp\left\{-\lambda_0^{(t)} x_i\right\}}{1 - \exp\left\{-\lambda_0^{(t)} z_i\right\}} dx_i \\
+  &= u_i z_i + (1 - u_i) \left( \frac{1}{\lambda_0^{(t)}} - \frac{z_i}{\exp\left\{\lambda_0^{(t)z_i}\right\} - 1}\right)
+\end{aligned}
+$$
+
+$$
+\begin{aligned}
+  \E[y_i | z_i, u_i, \lambda_0^{(t)}, \lambda_1^{(t)}] &= (1 - u_i) z_i + u_i \int_0^{z_i} x_i \frac{\lambda_1^{(t)} \exp\left\{-\lambda_1^{(t)} y_i\right\}}{1 - \exp\left\{-\lambda_1^{(t)} z_i\right\}} dx_i \\
+  &= (1 - u_i) z_i + u_i \left( \frac{1}{\lambda_0^{(t)}} - \frac{z_i}{\exp\left\{\lambda_0^{(t)z_i}\right\} - 1}\right)
+\end{aligned}
+$$
+
+In order to maximize the expectation of $l(\vect{x}, \vect{y} | \lambda_0, \lambda_1)$, let's first define the function
+
+$$
+  \begin{aligned}
+  Q(\lambda_0, \lambda_1 | \lambda_0^{(t)}, \lambda_1^{(t)}) &= \E[l(\vect{x}, \vect{y} | \lambda_0, \lambda_1) | \vect{z}, \vect{u}, \lambda_0^{(t)}, \lambda_1^{(t)}] \\
+  &= n \cdot (\ln \lambda_0 + \ln \lambda_1) \\
+  &- \lambda_0 \sum_{i=1}^n \left[u_i z_i + (1 - u_i) \left(\frac{1}{\lambda_0^{(t)}} - \frac{z_i}{\exp\left\{\lambda_0^{(t)} z_i\right\}}\right)\right] \\
+  &- \lambda_1 \sum_{i=1}^n \left[ (1 - u_i) z_i + u_i \left(\frac{1}{\lambda_1^{(t)}} - \frac{z_i}{\exp\left\{\lambda_1^{(t)} z_i\right\} - 1}\right)
+  \right]\end{aligned}
+$$
+
+## Task 2)
+
+The function $Q(\cdot)$ attains a maximum, and it is analytically tractable by considering
+
+$$
+  \frac{\partial Q}{\partial \lambda_0} = 0 \quad \text{and} \quad \frac{\partial Q}{\partial \lambda_1} = 0
+$$
+Solving for $\lambda_0$ and $\lambda_1$ we end up with
+
+$$
+  \begin{aligned}
+  \lambda_0 &= \frac{n}{\sum_{i=1}^n \left[(1 - u_i) z_i + u_i \left(\frac{1}{\lambda_1^{(t)}} - \frac{z_i}{\exp\left\{\lambda_0^{(t)}z_i\right\} - 1}\right)\right] } \\
+  \lambda_1 &= \frac{n}{\sum_{i=1}^n \left[u_i z_i + (1 - u_i) \left(\frac{1}{\lambda_1^{(t)}} - \frac{z_i}{\exp\left\{\lambda_1^{(t)}z_i\right\} - 1}\right)\right] } 
+  \end{aligned}
+$$
+
+The above values for $(\lambda_0, \lambda_1)$ can be used as $\left(\lambda_0^{(t+1)}, \lambda_1^{(t + 1)}\right)$ in the recursion $\left(\lambda_0^{(t)}, \lambda_1^{(t)}\right) \mapsto \left(\lambda_0^{(t+1)}, \lambda_1^{(t + 1)}\right)$. Below we have implemented the recursion in order to visualise the convergence plots for the estimates.
+
+```{R}
+u = read.delim("./u.txt")[[1]]
+z = read.delim("./z.txt")[[1]]
+n = length(u)
+
+
+num_iterations = 20
+
+lambda_0 = c(1, vector(length=num_iterations-1))
+lambda_1 = c(18, vector(length=num_iterations-1))
+
+for(i in 2:num_iterations) {
+  lambda_0[i] = n/sum(u*z + (1 - u)*(1/lambda_0[i-1] - z/(exp(lambda_0[i-1]*z) - 1)))
+  lambda_1[i] = n/sum((1 - u)*z + u*(1/lambda_1[i - 1] - z/(exp(lambda_1[i-1] * z) - 1)))
+}
+
+df_lambda_0 = data.frame(lambda_0=abs(diff(lambda_0)), iter=1:(num_iterations-1))
+df_lambda_1 = data.frame(lambda_1=abs(diff(lambda_1)), iter=1:(num_iterations-1))
+
+ggplot() + geom_line(data=df_lambda_0, aes(x=iter, y=lambda_0, color="lambda_0")) + geom_line(data=df_lambda_1, aes(x=iter, y=lambda_1, color="lambda_1")) + xlab("Iteration") + ylab("|lambda^(t+1) - lambda^t|")
+```
+
+```{R}
+cat("lambda_0 after 20 iterations:", lambda_0[20], "\n")
+cat("lambda_1 after 20 iterations:", lambda_1[20], "\n")
+```
+
+
+From the above plot we see that the EM algorithm makes the maximum likelihood estimates $\hat{\lambda_0}$ and $\hat{\lambda_1}$ for $\lambda_0$ and $\lambda_1$ respectively converge very fast. After 20 iterations, we find $\hat{\lambda_0} = 3.46$ and $\hat{\lambda_1} = 9.33$.
+
+## 3:
+
+Now we want to investigate the bias and variance of the estimator defined by the EM-algorithm. This we can do by using the bootstrap algorithm. In pseudocode, we want to do the following:
+
+for $b$ in $(1, 2, \dots, B)$ do
+
+1. $u_{b}^* \leftarrow$ sample with replacement from $u$
+2. $z_{b}^* \leftarrow$ sample with replacement from $z$
+3.  $(\lambda_{0, b}^{*}, \lambda_{1, b}^{*}) \leftarrow$ run EM algorithm with $u_{b}^*$ and $z_{b}^*$
+4. store $(\lambda_{0, b}^{*}, \lambda_{1, b}^{*})$ as a single bootstrap estimate.
+
+for b in (1, 2, ..., B) do:
+  1. Sample $z_b^*$ with replacement from $z$
+  2. Sample $u_b^*$ with replacement from $u$
+  3. Obtain a bootstrap estimate $(\lambda_{0, b}^{*}, \lambda_{1, b}^{*})$ by using the EM-algorithm with $z_b^*$ and $u_b^*$. 
+  4. Store the estimate $(\lambda_{0, b}^{*}, \lambda_{1, b}^{*})$ 
+end for
+
+We also need to define a stopping criteria for the EM-algorithm. In our case, we will be using the two-norm with tolerance $10^{-10}$.
+
+```{R}
+B = 20000
+tolerance = 10^(-10)
+EM_algorithm = function(u, z, tolerance) {
+  lambda = runif(2, 1, 10)
+  lambda_prev = c(0, 0)
+  
+  while(sqrt(sum((lambda-lambda_prev)^2)) > tolerance){
+    lambda_prev = lambda
+    lambda[1] = n / sum(u*z + (1-u)*(1/lambda[1] - z/(exp(lambda[1]*z) - 1)))
+    lambda[2] = n / sum((1-u)*z + u*(1/lambda[2] - z/(exp(lambda[2]*z) - 1)))
+  }
+  
+  return(lambda)
+}
+
+lambdas = matrix(0, nrow=B, ncol=2)
+for(b in 1:B) {
+  i = sample(1:n, replace=TRUE)
+  z_b = z[i]
+  u_b = u[i]
+  lambdas[b,] = EM_algorithm(u_b, z_b, tolerance)
+}
+
+
+# Plots
+
+par(mfrow=c(1,2))
+truehist(lambdas[,1], xlab="lambda_0")
+abline(v=lambda_0[20], col="red")
+truehist(lambdas[,2], xlab="lambda_1")
+abline(v=lambda_1[20], col="red", lwd=2)
+```
+
+It seems that the estimators are unbiased simply by looking at the histograms above. Here we plotted the EM estimates as red lines. We can verify this by calculating the bias as has been done below:
+
+```{R}
+lambda_0_bs_mean = mean(lambdas[,1])
+lambda_1_bs_mean = mean(lambdas[,2])
+lambda_0_bias = lambda_0_bs_mean - lambda_0[20]
+lambda_1_bias = lambda_1_bs_mean - lambda_1[20]
+cat("Bias lambda_0: ", lambda_0_bias, "\n")
+cat("Bias lambda_1: ", lambda_1_bias, "\n")
+```
+
+However, the standard deviation is quite large, and this would probably contribute more to the estimation error than the bias. We calculate the standard deviations below:
+
+```{R}
+sd = sqrt(diag(cov(lambdas)))
+cat("SD lambda_0: ", sd[1], "\n")
+cat("SD lambda_1: ", sd[2], "\n")
+```
+
+Also, the correlation between the estimates are as follows:
+
+```{R}
+corr = cor(lambdas)[1,2]
+cat("Correlation: ", corr, "\n")
+```
+
+Because of this, we would prefer using the maximum likelihood estimate. Also, since we have a small correlation it indicates that our algorithm is correctly implemented, since $x_i$ and $y_i$ are independent.
+
+## Task 4)
+
+We now want to find an analytical formula for $\pi(z_i u_i | \lambda_0, \lambda_1)$. We start by calculating the cumulative distribution for $z_i$ when $u_i = 1$, implying $z_i = x_i$:
+
+$$
+  \begin{aligned}
+  F(z_i | u_i = 1, \lambda_0, \lambda_1) &= \int_0^{x_i} \int_0^{x_i} \pi(x_i | \lambda_0) \times \pi(y_i | \lambda_1) \text{d} y_i \text{d} x_i \\
+  &= \int_0^{z_i} \lambda_0 e^{-\lambda_0 x_i} (1 - e^{-\lambda_1 y_i}) \text{d} x_i
+  \end{aligned}
+$$
+
+Then we can obtain the pdf
+
+$$
+  \pi(z_i | u_i = 1, \lambda_0, \lambda_1) = \lambda_0 e^{-\lambda_0 z_i} (1 - e^{-\lambda_1 z_i})
+$$
+
+We can do the same for $u_i = 0$, and we end up with
+
+$$
+  \pi(z_i | u_i = 0, \lambda_0, \lambda_1 ) = \lambda_1 e^{-\lambda_1 z_i}(1 - e^{-\lambda_0 z_i})
+$$
+
+Combining these expressions, we can write 
+
+$$
+  \pi(z_i, u_i | \lambda_0, \lambda_1) = \begin{cases}
+    \lambda_1 e^{-\lambda_1 z_i}\left(1 - e^{-\lambda_0 z_i}\right), \quad &u_i = 0\\
+    \lambda_0 e^{-\lambda_0 z_i} (1 - e^{-\lambda_1 z_i}), \quad &u_i = 1
+  \end{cases}
+$$
+
+Define $n_0 = \sum_{i=0}^n I(u_i = 0)$ and $n_0 = \sum_{i=0}^n I(u_i = 1)$. Then we can easily find the loglikelihood as
+
+$$
+\begin{aligned}
+  l(\lambda_0, \lambda_1 | \vect{z}, \vect{u}) &= \ln \pi(\vect{z}, \vect{u} | \lambda_0, \lambda_1) \\
+  &= \ln \left(\prod_{i=1}^n \pi(z_i, u_i | \lambda_0, \lambda_1)\right) \\
+  &= \sum_{i=1}^n \ln \left( \pi(z_i, u_i | \lambda_0, \lambda_1\right)) \\
+  &= n_0 \ln \lambda_1 + n_1 \lambda_0\\
+  &+ \underset{u_i = 1}{\sum_{i=1}^n} \left( \ln(1-e^{-\lambda_0 z_i})- \lambda_1 z_i \right) + \underset{u_i = 1}{\sum_{i=1}^n} \left( \ln(1-e^{-\lambda_1 z_i})- \lambda_0 z_i \right)
+\end{aligned}
+$$
+
+We want to find the maximum likelihood estimator for $\lambda_0$ and $\lambda_1$, and this is found through finding the maximum of the loglikelihood. We then have to find extremal values of this function:
+
+$$
+\begin{aligned}
+  0 &= \frac{\partial l(\lambda_0, \lambda_1 | \vect{z}, \vect{u})}{\partial \lambda_0} = \frac{n_1}{\lambda_0} - \sum_{i=1}^n z_i + \underset{u_i = 0}{\sum_{i=1}^n} \frac{z_i e^{\lambda_0 z_i}}{e^{\lambda_0 z_i} - 1} \\
+  0 &= \frac{\partial l(\lambda_0, \lambda_1 | \vect{z}, \vect{u})}{\partial \lambda_1} = \frac{n_0}{\lambda_1} - \sum_{i=1}^n z_i + \underset{u_i = 1}{\sum_{i=1}^n} \frac{z_i e^{\lambda_1 z_i}}{e^{\lambda_1 z_i} - 1}
+\end{aligned}
+$$
+
+The hessian is as follows:
+
+$$
+  \nabla^2 l(\lambda_0, \lambda_1 | \vect{z}, \vect{u}) = \begin{pmatrix}
+    - \frac{n_1}{\lambda_0^2} - \underset{u_i = 0}{\sum_{i=1}^n} \frac{z_i^2 e^{\lambda_0 z_i}}{\left(e^{\lambda_0 z_i}-1\right)^2} & 0 \\
+    0 & - \frac{n_0}{\lambda_1^2} - \underset{u_i = 1}{\sum_{i=1}^n} \frac{z_i^2 e^{\lambda_1 z_i}}{\left(e^{\lambda_1 z_i}-1\right)^2}
+  \end{pmatrix}
+$$
+Since the hessian is negative definite for all $(\lambda_0, \lambda_1)$, there exists a unique maximum which is unique. We will be using R's built-in optimization function `optim` in order to find the maximum:
+
+```{R}
+loglikelihood = function(lambdas) {
+  idx_u_0 = which(u == 0)
+  idx_u_1 = which(u == 1)
+  n0 = length(idx_u_0)
+  n1 = length(idx_u_1)
+  ll = n0 * log(lambdas[2])+n1*log(lambdas[1]) +
+    sum(log(1-exp(-lambdas[1]*z[idx_u_0])) - lambdas[2]*z[idx_u_0]) +
+    sum(log(1-exp(-lambdas[2]*z[idx_u_1])) - lambdas[1]*z[idx_u_1])
+}
+
+mle_lambdas = optim(par=c(1,1), fn=loglikelihood, control=list(fnscale=-1, maxit=1000, reltol=1e-15))$par
+mle_lambdas
+```
+
+This matches the estimates from the EM-algorithm. In the general case, EM convergence can be slow compared to using classical optimization. However, classical optimization is also more difficult to implement since it requires a lot of calculations beforehand.
